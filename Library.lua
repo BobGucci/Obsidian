@@ -28,7 +28,7 @@ local Toggles = {}
 local Options = {}
 local Tooltips = {}
 
-local BaseURL = "https://raw.githubusercontent.com/BobGucci/Obsidian/refs/heads/main/"
+local BaseURL = "https://raw.githubusercontent.com/BobGucci/RampageLibray/refs/heads/main/"
 local CustomImageManager = {}
 local CustomImageManagerAssets = {
     TransparencyTexture = {
