@@ -1,8 +1,8 @@
-local ObsidianTypes = require("./obsidian/Library.d")
+local ObsidianTypes = require("./RampageLibray/Library.d")
 
 return {
-    Library = (require("./obsidian/Library") :: any) :: ObsidianTypes.Library,
-    Types = require("./obsidian/Library.d"),
-    SaveManager = require("./obsidian/addons/SaveManager"),
-    ThemeManager = require("./obsidian/addons/ThemeManager")
+    Library = (require("./RampageLibray/Library") :: any) :: RampageLibrayTypes.Library,
+    Types = require("./RampageLibray/Library.d"),
+    SaveManager = require("./RampageLibray/addons/SaveManager"),
+    ThemeManager = require("./RampageLibray/addons/ThemeManager")
 }
