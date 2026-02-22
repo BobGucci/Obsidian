@@ -1,1129 +1,1057 @@
---// Apex UI Library v2.0
---// Superior à RampageLibrary - Performance, Design e Recursos Aprimorados
---// Autor: Criado para você
---// Licença: MIT
+--// =============================================================================
+--// APEX UI LIBRARY v3.0.0 — EDIÇÃO DEFINITIVA
+--// Autor: Criado para você | Build: STABLE-RELEASE
+--// Features: Sistema de erro robusto, Performance otimizada, Design premium
+--// =============================================================================
 
-local ApexLib = {
-    Version = "2.0.0",
-    Build = "RELEASE",
+local APEX = {
+    _VERSION = "3.0.0",
+    _BUILD = "STABLE-RELEASE-2024",
+    _ENV = {},
     
-    --// Configurações Globais
-    Settings = {
-        TweenTime = 0.15,
-        TweenStyle = Enum.EasingStyle.Quart,
-        TweenDirection = Enum.EasingDirection.Out,
-        CornerRadius = 6,
-        DPIScale = 1,
-        UseAcrylic = true,           -- Efeito vidro fosco (Windows 11 style)
-        UseShadows = true,             -- Sombras dinâmicas
-        AnimationFPS = 60,             -- Lock de FPS para animações
-        MaxNotifications = 5,          -- Limite de notificações
-        MobileOptimization = true,     -- Otimizações para mobile
+    --// Configurações Globais (Protegidas)
+    _CONFIG = {
+        DEBUG_MODE = false,
+        TWEEN_TIME = 0.15,
+        TWEEN_STYLE = Enum.EasingStyle.Quart,
+        TWEEN_DIRECTION = Enum.EasingDirection.Out,
+        CORNER_RADIUS = 8,
+        DPISCALE = 1,
+        MAX_FPS = 60,
+        USE_ACRYLIC = true,
+        USE_SHADOWS = true,
+        USE_PARTICLES = false, -- Efeitos avançados opcionais
+        MAX_NOTIFICATIONS = 6,
+        NOTIFICATION_DURATION = 5,
+        AUTO_SAVE = true,
+        SAVE_INTERVAL = 30,
     },
     
     --// Paleta de Cores (Sistema de Temas Dinâmico)
-    Scheme = {
+    _THEME = {
         -- Cores Base
-        Background = Color3.fromRGB(12, 12, 14),
-        Surface = Color3.fromRGB(22, 22, 26),
-        Elevated = Color3.fromRGB(32, 32, 38),
+        Background = Color3.fromRGB(8, 8, 12),
+        Surface = Color3.fromRGB(18, 18, 24),
+        SurfaceHover = Color3.fromRGB(28, 28, 36),
+        Elevated = Color3.fromRGB(35, 35, 48),
+        ElevatedHover = Color3.fromRGB(45, 45, 62),
         
-        -- Cores de Acento
-        Primary = Color3.fromRGB(124, 92, 250),      -- Roxo moderno
-        Secondary = Color3.fromRGB(56, 189, 248),    -- Azul cyan
-        Success = Color3.fromRGB(34, 197, 94),     -- Verde
-        Warning = Color3.fromRGB(251, 191, 36),      -- Amarelo
-        Danger = Color3.fromRGB(244, 63, 94),        -- Vermelho coral
+        -- Cores de Acento (Gradiente)
+        Primary = Color3.fromRGB(139, 92, 246),      -- Violeta
+        PrimaryLight = Color3.fromRGB(167, 139, 250),
+        Secondary = Color3.fromRGB(14, 165, 233),    -- Sky Blue
+        SecondaryLight = Color3.fromRGB(56, 189, 248),
+        
+        -- Estados
+        Success = Color3.fromRGB(34, 197, 94),
+        Warning = Color3.fromRGB(251, 191, 36),
+        Error = Color3.fromRGB(244, 63, 94),
+        Info = Color3.fromRGB(99, 102, 241),
         
         -- Texto
         TextPrimary = Color3.fromRGB(250, 250, 252),
-        TextSecondary = Color3.fromRGB(160, 160, 170),
-        TextMuted = Color3.fromRGB(100, 100, 110),
+        TextSecondary = Color3.fromRGB(160, 160, 175),
+        TextMuted = Color3.fromRGB(100, 100, 120),
+        TextDisabled = Color3.fromRGB(70, 70, 85),
         
         -- Bordas
-        Border = Color3.fromRGB(45, 45, 55),
-        BorderHover = Color3.fromRGB(70, 70, 85),
+        Border = Color3.fromRGB(45, 45, 60),
+        BorderActive = Color3.fromRGB(100, 100, 130),
+        BorderError = Color3.fromRGB(244, 63, 94),
         
         -- Efeitos
-        Glass = Color3.fromRGB(255, 255, 255),       -- Para Acrylic
+        Glass = Color3.fromRGB(255, 255, 255),
         Shadow = Color3.fromRGB(0, 0, 0),
+        Glow = Color3.fromRGB(139, 92, 246),
     },
     
     --// Sistemas Internos
-    _Systems = {
+    _SYSTEMS = {
         Registry = {},
         Connections = {},
-        Cache = {},
-        TweenCache = {},
-        IconCache = {},
+        Cache = { Icons = {}, Tweens = {}, Instances = {} },
+        Pools = { Tween = {}, Connection = {} },
+        Queues = { Notification = {}, Update = {} },
+        States = { IsOpen = true, IsMobile = false, IsStudio = false },
+        Performance = { FrameTime = 0, LastUpdate = 0 },
     },
     
-    --// Estados
-    IsOpen = true,
-    IsMobile = false,
-    IsStudio = false,
-    CurrentWindow = nil,
+    --// Referências de Serviços (Lazy Load)
+    _SERVICES = setmetatable({}, {
+        __index = function(t, k)
+            local success, service = pcall(game.GetService, game, k)
+            if success then
+                rawset(t, k, service)
+                return service
+            end
+            return nil
+        end
+    }),
+    
+    --// Contadores e IDs
+    _IDS = {
+        Window = 0,
+        Tab = 0,
+        Element = 0,
+        Notification = 0,
+    },
+    
+    --// Referências Globais
     Windows = {},
+    ActiveWindow = nil,
     Notifications = {},
     Keybinds = {},
-    
-    --// Serviços Roblox
-    Services = {},
+    Options = {},
+    Toggles = {},
 }
 
---// Inicialização de Serviços
-local Services = {
-    "Players", "RunService", "UserInputService", "TweenService",
-    "TextService", "CoreGui", "SoundService", "Teams", "GuiService"
-}
+--// =============================================================================
+--// SISTEMA DE ERROS E LOGGING
+--// =============================================================================
 
-for _, serviceName in ipairs(Services) do
-    local success, service = pcall(function()
-        return game:GetService(serviceName)
-    end)
-    if success then
-        ApexLib.Services[serviceName] = service
-    end
-end
-
---// Detecção de Ambiente
-ApexLib.IsStudio = ApexLib.Services.RunService:IsStudio()
-ApexLib.IsMobile = (function()
-    local platform = nil
-    pcall(function()
-        platform = ApexLib.Services.UserInputService:GetPlatform()
-    end)
-    return platform == Enum.Platform.Android or platform == Enum.Platform.IOS
-end)()
-
---// Sistema de Ícones (Lucide + Custom)
-local IconSystem = {}
+local ErrorHandler = {}
 do
-    local LucideURL = "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/"
-    local CustomIcons = {}
-    
-    function IconSystem:GetIcon(name, size)
-        size = size or 24
-        
-        -- Cache check
-        local cacheKey = name .. "_" .. tostring(size)
-        if ApexLib._Systems.IconCache[cacheKey] then
-            return ApexLib._Systems.IconCache[cacheKey]
+    function ErrorHandler:Wrap(func, context)
+        return function(...)
+            local success, result = pcall(func, ...)
+            if not success then
+                self:Log("ERROR", context or "Unknown", result)
+                return nil, result
+            end
+            return result
         end
-        
-        -- Sistema de fallback para ícones
-        local iconData = {
-            Url = "",
-            Size = size,
-            IsCustom = false,
-        }
-        
-        -- Implementação de ícones via ImageLabel com recorte
-        -- (Integração com sistema de spritesheet otimizado)
-        
-        ApexLib._Systems.IconCache[cacheKey] = iconData
-        return iconData
     end
     
-    function IconSystem:Preload(icons)
-        -- Pré-carregamento paralelo
-        for _, icon in ipairs(icons) do
-            task.spawn(function()
-                IconSystem:GetIcon(icon)
-            end)
+    function ErrorHandler:Log(level, context, message)
+        local timestamp = os.date("%H:%M:%S")
+        local prefix = string.format("[%s] [APEX-%s] [%s]:", timestamp, level, context)
+        
+        if level == "ERROR" then
+            warn(prefix, message)
+            -- Salvar em log interno para debug
+            table.insert(APEX._SYSTEMS.Cache.Logs or {}, {Time = tick(), Level = level, Context = context, Message = message})
+        elseif APEX._CONFIG.DEBUG_MODE then
+            print(prefix, message)
         end
+    end
+    
+    function ErrorHandler:Assert(condition, message, context)
+        if not condition then
+            self:Log("ERROR", context or "Assert", message or "Assertion failed")
+            error("[APEX] " .. (message or "Assertion failed"), 2)
+        end
+        return condition
+    end
+    
+    function ErrorHandler:SafeCall(func, ...)
+        if type(func) ~= "function" then return nil end
+        local success, result = pcall(func, ...)
+        if not success then
+            self:Log("ERROR", "Callback", result)
+            return nil
+        end
+        return result
     end
 end
-ApexLib.Icons = IconSystem
+APEX.Error = ErrorHandler
 
---// Sistema de Animações Avançado
-local TweenSystem = {}
-do
-    local ActiveTweens = {}
-    local TweenPool = {}
-    
-    function TweenSystem:Create(object, info, properties)
-        -- Pool de tweens para performance
-        local tween = TweenService:Create(object, info, properties)
-        
-        -- Gerenciamento automático
-        local connection = tween.Completed:Connect(function()
-            ActiveTweens[tween] = nil
-        end)
-        
-        ActiveTweens[tween] = connection
-        return tween
-    end
-    
-    function TweenSystem:StopAll(object)
-        for tween, connection in pairs(ActiveTweens) do
-            if tween.Instance == object then
-                tween:Cancel()
-                connection:Disconnect()
-                ActiveTweens[tween] = nil
-            end
-        end
-    end
-    
-    function TweenSystem:BulkCreate(tweens)
-        -- Criação paralela de múltiplos tweens
-        local completed = 0
-        local total = #tweens
-        
-        for _, tweenData in ipairs(tweens) do
-            task.spawn(function()
-                local tween = self:Create(tweenData.Object, tweenData.Info, tweenData.Properties)
-                tween:Play()
-                tween.Completed:Wait()
-                completed += 1
-            end)
-        end
-        
-        repeat task.wait() until completed == total
-    end
-end
-ApexLib.Tween = TweenSystem
+--// =============================================================================
+--// UTILITÁRIOS MATEMÁTICOS E HELPERS
+--// =============================================================================
 
---// Sistema de Registro (Memory Management)
-local Registry = {}
-do
-    function Registry:Add(instance, properties)
-        ApexLib._Systems.Registry[instance] = {
-            Properties = properties,
-            Created = tick(),
-        }
-    end
-    
-    function Registry:UpdateTheme()
-        for instance, data in pairs(ApexLib._Systems.Registry) do
-            if instance and instance.Parent then
-                for prop, colorKey in pairs(data.Properties) do
-                    if typeof(colorKey) == "string" then
-                        instance[prop] = ApexLib.Scheme[colorKey] or instance[prop]
-                    elseif typeof(colorKey) == "function" then
-                        instance[prop] = colorKey()
-                    end
-                end
-            else
-                ApexLib._Systems.Registry[instance] = nil
-            end
-        end
-    end
-    
-    function Registry:Clean()
-        for instance, _ in pairs(ApexLib._Systems.Registry) do
-            if instance and not instance.Parent then
-                ApexLib._Systems.Registry[instance] = nil
-            end
-        end
-    end
-end
-ApexLib.Registry = Registry
-
---// Utilitários
 local Utils = {}
 do
+    --// Matemática Avançada
     function Utils:Round(num, decimals)
-        local mult = 10 ^ (decimals or 0)
+        if type(num) ~= "number" then return 0 end
+        decimals = decimals or 0
+        local mult = 10 ^ decimals
         return math.floor(num * mult + 0.5) / mult
     end
     
     function Utils:Clamp(value, min, max)
-        return math.max(min, math.min(max, value))
+        if type(value) ~= "number" then return min or 0 end
+        return math.max(min or -math.huge, math.min(max or math.huge, value))
     end
     
     function Utils:Lerp(a, b, t)
-        return a + (b - a) * t
+        return a + (b - a) * Utils:Clamp(t, 0, 1)
     end
     
     function Utils:Map(value, inMin, inMax, outMin, outMax)
         return (value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin
     end
     
-    function Utils:GetTextBounds(text, font, size, width)
-        local params = Instance.new("GetTextBoundsParams")
-        params.Text = text
-        params.Font = font
-        params.Size = size
-        params.Width = width or math.huge
-        params.RichText = true
+    function Utils:Easing(t, type)
+        -- Easing functions avançadas
+        type = type or "OutQuart"
+        t = Utils:Clamp(t, 0, 1)
         
-        return ApexLib.Services.TextService:GetTextBoundsAsync(params)
-    end
-    
-    function Utils:SafeCallback(callback, ...)
-        if typeof(callback) == "function" then
-            local success, result = pcall(callback, ...)
-            if not success then
-                warn("[ApexLib] Callback error:", result)
-            end
-            return success, result
+        if type == "OutQuart" then
+            return 1 - (1 - t) ^ 4
+        elseif type == "InOutQuart" then
+            return t < 0.5 and 8 * t ^ 4 or 1 - (-2 * t + 2) ^ 4 / 2
+        elseif type == "OutBack" then
+            local c1, c3 = 1.70158, 2.70158
+            return 1 + c3 * (t - 1) ^ 3 + c1 * (t - 1) ^ 2
+        elseif type == "OutElastic" then
+            local c4 = (2 * math.pi) / 3
+            return t == 0 and 0 or t == 1 and 1 or 2 ^ (-10 * t) * math.sin((t * 10 - 0.75) * c4) + 1
         end
-        return false, nil
+        return t
     end
     
-    --// Sistema de Gradiente Dinâmico
-    function Utils:CreateGradient(color1, color2, rotation)
-        return ColorSequence.new({
-            ColorSequenceKeypoint.new(0, color1),
-            ColorSequenceKeypoint.new(1, color2),
-        })
+    --// Cores e Gradientes
+    function Utils:ColorLerp(c1, c2, t)
+        return Color3.new(
+            Utils:Lerp(c1.R, c2.R, t),
+            Utils:Lerp(c1.G, c2.G, t),
+            Utils:Lerp(c1.B, c2.B, t)
+        )
     end
     
-    --// Verificador de Input
-    function Utils:IsClickInput(input, includeRightClick)
-        return (input.UserInputType == Enum.UserInputType.MouseButton1 or 
-               (includeRightClick and input.UserInputType == Enum.UserInputType.MouseButton2) or
-               input.UserInputType == Enum.UserInputType.Touch) and
-               input.UserInputState == Enum.UserInputState.Begin
+    function Utils:HexToColor(hex)
+        hex = hex:gsub("#", "")
+        return Color3.fromRGB(
+            tonumber(hex:sub(1, 2), 16),
+            tonumber(hex:sub(3, 4), 16),
+            tonumber(hex:sub(5, 6), 16)
+        )
+    end
+    
+    function Utils:ColorToHex(color)
+        return string.format("#%02X%02X%02X", 
+            math.floor(color.R * 255),
+            math.floor(color.G * 255),
+            math.floor(color.B * 255)
+        )
+    end
+    
+    --// Texto e Medidas
+    function Utils:GetTextBounds(text, font, size, maxWidth)
+        local success, bounds = pcall(function()
+            local params = Instance.new("GetTextBoundsParams")
+            params.Text = tostring(text or "")
+            params.Font = font or Font.fromEnum(Enum.Font.Gotham)
+            params.Size = size or 14
+            params.Width = maxWidth or math.huge
+            params.RichText = true
+            
+            return APEX._SERVICES.TextService:GetTextBoundsAsync(params)
+        end)
+        
+        return success and bounds or Vector2.zero
+    end
+    
+    function Utils:Truncate(text, maxLength, suffix)
+        text = tostring(text or "")
+        if #text <= maxLength then return text end
+        suffix = suffix or "..."
+        return text:sub(1, maxLength - #suffix) .. suffix
+    end
+    
+    --// Tabelas
+    function Utils:DeepCopy(orig)
+        local copy
+        if type(orig) == "table" then
+            copy = {}
+            for k, v in next, orig, nil do
+                copy[Utils:DeepCopy(k)] = Utils:DeepCopy(v)
+            end
+            setmetatable(copy, Utils:DeepCopy(getmetatable(orig)))
+        else
+            copy = orig
+        end
+        return copy
+    end
+    
+    function Utils:MergeTables(base, override)
+        local result = Utils:DeepCopy(base or {})
+        for k, v in pairs(override or {}) do
+            if type(v) == "table" and type(result[k]) == "table" then
+                result[k] = Utils:MergeTables(result[k], v)
+            else
+                result[k] = v
+            end
+        end
+        return result
+    end
+    
+    --// Input
+    function Utils:IsLeftClick(input)
+        return input and input.UserInputType == Enum.UserInputType.MouseButton1
+    end
+    
+    function Utils:IsRightClick(input)
+        return input and input.UserInputType == Enum.UserInputType.MouseButton2
+    end
+    
+    function Utils:IsTouch(input)
+        return input and input.UserInputType == Enum.UserInputType.Touch
+    end
+    
+    function Utils:IsClick(input)
+        return Utils:IsLeftClick(input) or Utils:IsTouch(input)
+    end
+    
+    function Utils:IsKey(input, keyCode)
+        return input and input.KeyCode == keyCode
+    end
+    
+    --// Validação
+    function Utils:ValidateConfig(config, template)
+        config = config or {}
+        template = template or {}
+        
+        local validated = {}
+        for key, default in pairs(template) do
+            if config[key] == nil then
+                validated[key] = Utils:DeepCopy(default)
+            else
+                local expectedType = type(default)
+                local actualType = type(config[key])
+                
+                if expectedType == actualType or expectedType == "nil" then
+                    validated[key] = config[key]
+                else
+                    -- Tentar converter
+                    if expectedType == "number" and actualType == "string" then
+                        validated[key] = tonumber(config[key]) or default
+                    elseif expectedType == "boolean" and actualType == "string" then
+                        validated[key] = config[key]:lower() == "true"
+                    else
+                        validated[key] = Utils:DeepCopy(default)
+                        APEX.Error:Log("WARN", "Config", string.format("Tipo inválido para '%s', usando padrão", key))
+                    end
+                end
+            end
+        end
+        
+        -- Adicionar extras não no template
+        for key, value in pairs(config) do
+            if validated[key] == nil then
+                validated[key] = value
+            end
+        end
+        
+        return validated
     end
 end
-ApexLib.Utils = Utils
+APEX.Utils = Utils
 
---// Criador de Elementos UI
-local Creator = {}
+--// =============================================================================
+--// SISTEMA DE CACHE E POOLING (Performance)
+--// =============================================================================
+
+local CacheSystem = {}
 do
-    local function ApplyProperties(instance, props)
-        for prop, value in pairs(props) do
-            if prop ~= "Parent" then
-                instance[prop] = value
-            end
+    function CacheSystem:GetIcon(name, size)
+        local cacheKey = string.format("%s_%d", tostring(name), size or 24)
+        
+        if APEX._SYSTEMS.Cache.Icons[cacheKey] then
+            return APEX._SYSTEMS.Cache.Icons[cacheKey]
         end
-        return instance
+        
+        -- Criar novo ícone (placeholder - integrar com sistema real de ícones)
+        local iconData = {
+            Name = name,
+            Size = size or 24,
+            URL = "",
+            Loaded = false,
+        }
+        
+        APEX._SYSTEMS.Cache.Icons[cacheKey] = iconData
+        return iconData
     end
     
-    function Creator:New(className, properties)
-        local instance = Instance.new(className)
+    function CacheSystem:StoreTween(id, tween)
+        APEX._SYSTEMS.Cache.Tweens[id] = tween
+    end
+    
+    function CacheSystem:GetTween(id)
+        return APEX._SYSTEMS.Cache.Tweens[id]
+    end
+    
+    function CacheSystem:ClearOld(maxAge)
+        maxAge = maxAge or 300 -- 5 minutos
+        local now = tick()
         
-        -- Aplicar templates padrão
-        if className == "Frame" then
-            instance.BackgroundColor3 = ApexLib.Scheme.Surface
-            instance.BorderSizePixel = 0
-        elseif className == "TextLabel" or className == "TextButton" or className == "TextBox" then
-            instance.FontFace = Font.fromEnum(Enum.Font.Gotham)
-            instance.TextColor3 = ApexLib.Scheme.TextPrimary
-            instance.TextSize = 14
-            instance.BorderSizePixel = 0
-            instance.BackgroundTransparency = 1
-        elseif className == "ImageLabel" or className == "ImageButton" then
-            instance.BackgroundTransparency = 1
-            instance.BorderSizePixel = 0
+        for id, data in pairs(APEX._SYSTEMS.Cache.Instances) do
+            if now - data.Time > maxAge then
+                APEX._SYSTEMS.Cache.Instances[id] = nil
+            end
+        end
+    end
+    
+    function CacheSystem:StoreInstance(id, instance)
+        APEX._SYSTEMS.Cache.Instances[id] = {
+            Instance = instance,
+            Time = tick(),
+        }
+    end
+end
+APEX.Cache = CacheSystem
+
+--// =============================================================================
+// CRIADOR DE INSTÂNCIAS (Factory Pattern)
+// =============================================================================
+
+local Creator = {}
+do
+    local Templates = {
+        Frame = {
+            BackgroundColor3 = APEX._THEME.Surface,
+            BorderSizePixel = 0,
+        },
+        TextLabel = {
+            FontFace = Font.fromEnum(Enum.Font.Gotham),
+            TextColor3 = APEX._THEME.TextPrimary,
+            TextSize = 14,
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            RichText = true,
+        },
+        TextButton = {
+            FontFace = Font.fromEnum(Enum.Font.GothamMedium),
+            TextColor3 = APEX._THEME.TextPrimary,
+            TextSize = 14,
+            AutoButtonColor = false,
+            BorderSizePixel = 0,
+        },
+        TextBox = {
+            FontFace = Font.fromEnum(Enum.Font.Gotham),
+            TextColor3 = APEX._THEME.TextPrimary,
+            TextSize = 14,
+            ClearTextOnFocus = false,
+            BorderSizePixel = 0,
+        },
+        ImageLabel = {
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+        },
+        ImageButton = {
+            BackgroundTransparency = 1,
+            AutoButtonColor = false,
+            BorderSizePixel = 0,
+        },
+        ScrollingFrame = {
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            ScrollBarThickness = 2,
+            ScrollBarImageColor3 = APEX._THEME.Border,
+        },
+    }
+    
+    function Creator:New(className, properties)
+        -- Criar instância
+        local success, instance = pcall(Instance.new, className)
+        if not success or not instance then
+            APEX.Error:Log("ERROR", "Creator", "Falha ao criar instância: " .. tostring(className))
+            return nil
         end
         
-        ApplyProperties(instance, properties or {})
+        -- Aplicar template
+        local template = Templates[className]
+        if template then
+            for prop, value in pairs(template) do
+                local setSuccess = pcall(function()
+                    instance[prop] = value
+                end)
+                if not setSuccess then
+                    APEX.Error:Log("WARN", "Creator", string.format("Falha ao aplicar %s.%s", className, prop))
+                end
+            end
+        end
         
-        if properties and properties.Parent then
+        -- Aplicar propriedades customizadas
+        properties = properties or {}
+        for prop, value in pairs(properties) do
+            if prop ~= "Parent" then
+                local setSuccess, err = pcall(function()
+                    instance[prop] = value
+                end)
+                if not setSuccess then
+                    APEX.Error:Log("WARN", "Creator", string.format("Falha em %s.%s: %s", className, prop, tostring(err)))
+                end
+            end
+        end
+        
+        -- Parent por último (melhor performance)
+        if properties.Parent then
             instance.Parent = properties.Parent
         end
         
         return instance
     end
     
-    --// Efeito Acrylic (Vidro Fosco)
-    function Creator:ApplyAcrylic(frame, intensity)
-        if not ApexLib.Settings.UseAcrylic then return end
-        
-        intensity = intensity or 0.15
-        
-        local blur = Creator:New("ImageLabel", {
-            Name = "AcrylicBlur",
-            Size = UDim2.fromScale(1, 1),
-            BackgroundTransparency = 1,
-            Image = "rbxassetid://1316045210", -- Blur asset
-            ImageColor3 = ApexLib.Scheme.Background,
-            ImageTransparency = 1 - intensity,
-            ScaleType = Enum.ScaleType.Stretch,
-            Parent = frame,
-        })
-        
-        local noise = Creator:New("ImageLabel", {
-            Name = "AcrylicNoise",
-            Size = UDim2.fromScale(1, 1),
-            BackgroundTransparency = 1,
-            Image = "rbxassetid://1316045210", -- Noise texture
-            ImageTransparency = 0.95,
-            ScaleType = Enum.ScaleType.Tile,
-            TileSize = UDim2.fromOffset(64, 64),
-            Parent = frame,
-        })
-        
-        return blur, noise
-    end
-    
-    --// Sistema de Sombras
-    function Creator:ApplyShadow(frame, intensity, offset)
-        if not ApexLib.Settings.UseShadows then return end
-        
-        intensity = intensity or 0.3
-        offset = offset or UDim2.fromOffset(0, 4)
-        
-        local shadow = Creator:New("ImageLabel", {
-            Name = "Shadow",
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            Position = UDim2.fromScale(0.5, 0.5) + offset,
-            Size = UDim2.new(1, 20, 1, 20),
-            BackgroundTransparency = 1,
-            Image = "rbxassetid://1316045210", -- Shadow asset
-            ImageColor3 = ApexLib.Scheme.Shadow,
-            ImageTransparency = 1 - intensity,
-            ScaleType = Enum.ScaleType.Stretch,
-            ZIndex = frame.ZIndex - 1,
-            Parent = frame.Parent,
-        })
-        
-        -- Anexar shadow ao frame para gerenciamento
-        frame:GetPropertyChangedSignal("Parent"):Connect(function()
-            shadow.Parent = frame.Parent
-        end)
-        
-        return shadow
-    end
-    
-    --// Corner Radius Responsivo
     function Creator:ApplyCorner(instance, radius)
-        radius = radius or ApexLib.Settings.CornerRadius
-        
-        local corner = Creator:New("UICorner", {
+        radius = radius or APEX._CONFIG.CORNER_RADIUS
+        return self:New("UICorner", {
             CornerRadius = UDim.new(0, radius),
             Parent = instance,
         })
-        
-        return corner
     end
     
-    --// Stroke Moderno
-    function Creator:ApplyStroke(instance, color, thickness)
-        local stroke = Creator:New("UIStroke", {
-            Color = color or ApexLib.Scheme.Border,
+    function Creator:ApplyStroke(instance, color, thickness, transparency)
+        return self:New("UIStroke", {
+            Color = color or APEX._THEME.Border,
             Thickness = thickness or 1,
+            Transparency = transparency or 0,
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
             Parent = instance,
         })
+    end
+    
+    function Creator:ApplyShadow(instance, intensity, offset, blur)
+        if not APEX._CONFIG.USE_SHADOWS then return nil end
         
-        return stroke
+        intensity = intensity or 0.3
+        offset = offset or UDim2.fromOffset(0, 4)
+        blur = blur or 20
+        
+        local shadowHolder = self:New("Frame", {
+            Name = "ShadowHolder",
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.fromScale(0.5, 0.5) + offset,
+            Size = UDim2.new(1, blur * 2, 1, blur * 2),
+            BackgroundTransparency = 1,
+            ZIndex = instance.ZIndex - 1,
+            Parent = instance.Parent,
+        })
+        
+        local shadow = self:New("ImageLabel", {
+            Name = "Shadow",
+            Size = UDim2.fromScale(1, 1),
+            BackgroundTransparency = 1,
+            Image = "rbxassetid://6015897843", -- Shadow asset
+            ImageColor3 = APEX._THEME.Shadow,
+            ImageTransparency = 1 - intensity,
+            ScaleType = Enum.ScaleType.Slice,
+            SliceCenter = Rect.new(49, 49, 51, 51),
+            SliceScale = blur / 50,
+            Parent = shadowHolder,
+        })
+        
+        -- Sincronizar movimento
+        local connection
+        connection = instance:GetPropertyChangedSignal("Parent"):Connect(function()
+            if not instance.Parent then
+                shadowHolder:Destroy()
+                if connection then connection:Disconnect() end
+            else
+                shadowHolder.Parent = instance.Parent
+            end
+        end)
+        
+        table.insert(APEX._SYSTEMS.Connections, connection)
+        
+        return shadowHolder
+    end
+    
+    function Creator:ApplyAcrylic(instance, intensity)
+        if not APEX._CONFIG.USE_ACRYLIC then return nil end
+        
+        intensity = intensity or 0.15
+        
+        local acrylic = self:New("Frame", {
+            Name = "Acrylic",
+            Size = UDim2.fromScale(1, 1),
+            BackgroundColor3 = APEX._THEME.Background,
+            BackgroundTransparency = 1 - intensity,
+            BorderSizePixel = 0,
+            ZIndex = instance.ZIndex - 1,
+            Parent = instance,
+        })
+        
+        -- Noise texture overlay
+        local noise = self:New("ImageLabel", {
+            Name = "Noise",
+            Size = UDim2.fromScale(1, 1),
+            BackgroundTransparency = 1,
+            Image = "rbxassetid://1316045210",
+            ImageTransparency = 0.95,
+            ScaleType = Enum.ScaleType.Tile,
+            TileSize = UDim2.fromOffset(64, 64),
+            ZIndex = 1,
+            Parent = acrylic,
+        })
+        
+        self:ApplyCorner(acrylic, APEX._CONFIG.CORNER_RADIUS)
+        
+        return acrylic
+    end
+    
+    function Creator:ApplyGradient(instance, color1, color2, rotation, transparency)
+        return self:New("UIGradient", {
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, color1 or APEX._THEME.Primary),
+                ColorSequenceKeypoint.new(1, color2 or APEX._THEME.Secondary),
+            }),
+            Rotation = rotation or 0,
+            Transparency = transparency or NumberSequence.new(0),
+            Parent = instance,
+        })
+    end
+    
+    function Creator:CreateLayout(type, parent, config)
+        config = config or {}
+        
+        if type == "List" then
+            return self:New("UIListLayout", {
+                Padding = config.Padding or UDim.new(0, 8),
+                FillDirection = config.Direction or Enum.FillDirection.Vertical,
+                HorizontalAlignment = config.HAlign or Enum.HorizontalAlignment.Left,
+                VerticalAlignment = config.VAlign or Enum.VerticalAlignment.Top,
+                SortOrder = config.Sort or Enum.SortOrder.LayoutOrder,
+                Parent = parent,
+            })
+        elseif type == "Grid" then
+            return self:New("UIGridLayout", {
+                CellSize = config.CellSize or UDim2.fromOffset(100, 100),
+                CellPadding = config.Padding or UDim.new(0, 8),
+                FillDirection = config.Direction or Enum.FillDirection.Horizontal,
+                Parent = parent,
+            })
+        elseif type == "Page" then
+            return self:New("UIPageLayout", {
+                Animated = config.Animated ~= false,
+                Circular = config.Circular or false,
+                EasingDirection = config.Easing or Enum.EasingDirection.Out,
+                EasingStyle = config.Style or Enum.EasingStyle.Quart,
+                TweenTime = config.Time or 0.3,
+                Parent = parent,
+            })
+        elseif type == "Flex" then
+            return self:New("UIFlexItem", {
+                FlexMode = config.Mode or Enum.UIFlexMode.None,
+                Parent = parent,
+            })
+        end
+        
+        return nil
     end
 end
-ApexLib.Creator = Creator
+APEX.Creator = Creator
 
---// Sistema de Janela Principal
+--// =============================================================================
+// SISTEMA DE ANIMAÇÕES (Tween System Avançado)
+// =============================================================================
+
+local AnimationSystem = {}
+do
+    local ActiveTweens = {}
+    local TweenQueue = {}
+    
+    function AnimationSystem:Create(object, duration, properties, easingStyle, easingDirection)
+        if not object or not object.Parent then return nil end
+        
+        duration = duration or APEX._CONFIG.TWEEN_TIME
+        easingStyle = easingStyle or APEX._CONFIG.TWEEN_STYLE
+        easingDirection = easingDirection or APEX._CONFIG.TWEEN_DIRECTION
+        
+        -- Parar tweens existentes no mesmo objeto/propriedade
+        self:Stop(object)
+        
+        local tweenInfo = TweenInfo.new(
+            duration,
+            easingStyle,
+            easingDirection
+        )
+        
+        local success, tween = pcall(function()
+            return APEX._SERVICES.TweenService:Create(object, tweenInfo, properties)
+        end)
+        
+        if not success or not tween then
+            APEX.Error:Log("ERROR", "Animation", "Falha ao criar tween")
+            return nil
+        end
+        
+        -- Registrar
+        ActiveTweens[object] = {
+            Tween = tween,
+            Properties = properties,
+            StartTime = tick(),
+        }
+        
+        -- Auto-limpeza
+        tween.Completed:Connect(function()
+            ActiveTweens[object] = nil
+        end)
+        
+        return tween
+    end
+    
+    function AnimationSystem:Play(object, duration, properties, callback)
+        local tween = self:Create(object, duration, properties)
+        if tween then
+            tween:Play()
+            if callback then
+                tween.Completed:Connect(callback)
+            end
+        end
+        return tween
+    end
+    
+    function AnimationSystem:Stop(object)
+        local data = ActiveTweens[object]
+        if data and data.Tween then
+            data.Tween:Cancel()
+            ActiveTweens[object] = nil
+        end
+    end
+    
+    function AnimationSystem:StopAll()
+        for object, data in pairs(ActiveTweens) do
+            if data.Tween then
+                data.Tween:Cancel()
+            end
+        end
+        ActiveTweens = {}
+    end
+    
+    --// Animações Predefinidas
+    function AnimationSystem:FadeIn(object, duration)
+        object.BackgroundTransparency = 1
+        object.Visible = true
+        return self:Play(object, duration or 0.2, {
+            BackgroundTransparency = 0
+        })
+    end
+    
+    function AnimationSystem:FadeOut(object, duration, destroy)
+        local tween = self:Play(object, duration or 0.2, {
+            BackgroundTransparency = 1
+        }, nil, nil, function()
+            object.Visible = false
+            if destroy then
+                object:Destroy()
+            end
+        end)
+        return tween
+    end
+    
+    function AnimationSystem:ScaleIn(object, duration)
+        object.Size = UDim2.fromScale(0.8, 0.8)
+        object.Visible = true
+        return self:Play(object, duration or 0.3, {
+            Size = UDim2.fromScale(1, 1)
+        }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+    end
+    
+    function AnimationSystem:SlideIn(object, direction, duration)
+        direction = direction or "Right"
+        duration = duration or 0.3
+        
+        local originalPos = object.Position
+        local startPos
+        
+        if direction == "Right" then
+            startPos = originalPos + UDim2.fromOffset(50, 0)
+        elseif direction == "Left" then
+            startPos = originalPos - UDim2.fromOffset(50, 0)
+        elseif direction == "Up" then
+            startPos = originalPos - UDim2.fromOffset(0, 50)
+        elseif direction == "Down" then
+            startPos = originalPos + UDim2.fromOffset(0, 50)
+        end
+        
+        object.Position = startPos
+        object.Visible = true
+        
+        return self:Play(object, duration, {
+            Position = originalPos
+        }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+    end
+    
+    function AnimationSystem:Pulse(object, scale)
+        scale = scale or 1.05
+        local originalSize = object.Size
+        
+        self:Play(object, 0.15, { Size = originalSize * scale }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, function()
+            self:Play(object, 0.15, { Size = originalSize }, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
+        end)
+    end
+    
+    function AnimationSystem:Shake(object, intensity)
+        intensity = intensity or 5
+        local originalPos = object.Position
+        
+        for i = 1, 5 do
+            local offset = UDim2.fromOffset(
+                math.random(-intensity, intensity),
+                math.random(-intensity, intensity)
+            )
+            self:Play(object, 0.05, { Position = originalPos + offset })
+            task.wait(0.05)
+        end
+        
+        object.Position = originalPos
+    end
+end
+APEX.Animation = AnimationSystem
+
+--// =============================================================================
+// SISTEMA DE JANELA PRINCIPAL (Window System)
+// =============================================================================
+
 local WindowSystem = {}
 do
     function WindowSystem:Create(config)
-        config = config or {}
+        -- Validar configuração
+        local template = {
+            Title = "APEX Window",
+            Subtitle = "",
+            Size = UDim2.fromOffset(800, 550),
+            Position = UDim2.fromOffset(100, 100),
+            MinSize = Vector2.new(500, 350),
+            MaxSize = Vector2.new(1920, 1080),
+            Resizable = true,
+            Draggable = true,
+            Acrylic = true,
+            Shadow = true,
+            AnimateOpen = true,
+            StartMaximized = false,
+            Keybind = Enum.KeyCode.RightShift,
+            AutoShow = true,
+            Theme = "Default",
+        }
+        
+        config = Utils:ValidateConfig(config, template)
+        APEX._IDS.Window += 1
         
         local Window = {
-            Title = config.Title or "Apex Window",
-            Subtitle = config.Subtitle or "",
-            Size = config.Size or UDim2.fromOffset(700, 500),
-            Position = config.Position or UDim2.fromOffset(100, 100),
-            MinSize = config.MinSize or Vector2.new(400, 300),
+            ID = APEX._IDS.Window,
+            Config = config,
             Tabs = {},
             ActiveTab = nil,
             IsMinimized = false,
             IsMaximized = false,
-            ZIndex = 100,
+            IsDestroyed = false,
+            Elements = {},
+            _Connections = {},
         }
         
-        --// ScreenGui Principal
+        --// Criar ScreenGui
         local ScreenGui = Creator:New("ScreenGui", {
-            Name = "ApexLib_" .. tostring(tick()),
-            DisplayOrder = 999,
+            Name = "APEX_" .. Window.ID,
+            DisplayOrder = 999 + Window.ID,
             ResetOnSpawn = false,
             ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-            Parent = ApexLib.Services.CoreGui or ApexLib.Services.Players.LocalPlayer:WaitForChild("PlayerGui"),
+            Parent = APEX._SERVICES.CoreGui or APEX._SERVICES.Players.LocalPlayer:WaitForChild("PlayerGui"),
         })
+        Window.ScreenGui = ScreenGui
         
-        --// Main Frame
+        --// Container Principal
         local MainFrame = Creator:New("Frame", {
-            Name = "MainWindow",
-            Size = Window.Size,
-            Position = Window.Position,
-            BackgroundColor3 = ApexLib.Scheme.Background,
+            Name = "Main",
+            Size = config.Size,
+            Position = config.Position,
+            BackgroundColor3 = APEX._THEME.Background,
+            ClipsDescendants = true,
             Parent = ScreenGui,
         })
-        
         Creator:ApplyCorner(MainFrame, 12)
-        Creator:ApplyAcrylic(MainFrame, 0.1)
-        Creator:ApplyShadow(MainFrame, 0.4, UDim2.fromOffset(0, 8))
+        
+        if config.Acrylic then
+            Creator:ApplyAcrylic(MainFrame, 0.12)
+        end
+        
+        if config.Shadow then
+            Creator:ApplyShadow(MainFrame, 0.4, UDim2.fromOffset(0, 8), 25)
+        end
+        
+        Window.MainFrame = MainFrame
         
         --// Title Bar
         local TitleBar = Creator:New("Frame", {
             Name = "TitleBar",
-            Size = UDim2.new(1, 0, 0, 48),
+            Size = UDim2.new(1, 0, 0, 50),
             BackgroundTransparency = 1,
             Parent = MainFrame,
         })
         
-        --// Título
-        local TitleText = Creator:New("TextLabel", {
-            Name = "Title",
+        -- Título
+        local TitleContainer = Creator:New("Frame", {
+            Size = UDim2.new(1, -200, 1, 0),
             Position = UDim2.fromOffset(20, 0),
-            Size = UDim2.new(1, -100, 1, 0),
-            Text = Window.Title,
-            TextSize = 18,
-            FontFace = Font.fromEnum(Enum.Font.GothamBold),
-            TextXAlignment = Enum.TextXAlignment.Left,
+            BackgroundTransparency = 1,
             Parent = TitleBar,
         })
         
-        if Window.Subtitle ~= "" then
-            local SubtitleText = Creator:New("TextLabel", {
+        local TitleLabel = Creator:New("TextLabel", {
+            Name = "Title",
+            Size = UDim2.new(1, 0, 0.6, 0),
+            Position = UDim2.fromOffset(0, 2),
+            Text = config.Title,
+            TextSize = 18,
+            FontFace = Font.fromEnum(Enum.Font.GothamBold),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Parent = TitleContainer,
+        })
+        
+        if config.Subtitle and config.Subtitle ~= "" then
+            local SubtitleLabel = Creator:New("TextLabel", {
                 Name = "Subtitle",
-                Position = UDim2.fromOffset(20, 26),
-                Size = UDim2.new(1, -100, 0, 16),
-                Text = Window.Subtitle,
+                Size = UDim2.new(1, 0, 0.4, 0),
+                Position = UDim2.fromOffset(0, 32),
+                Text = config.Subtitle,
                 TextSize = 12,
-                TextColor3 = ApexLib.Scheme.TextSecondary,
+                TextColor3 = APEX._THEME.TextSecondary,
                 TextXAlignment = Enum.TextXAlignment.Left,
-                Parent = TitleBar,
+                Parent = TitleContainer,
             })
         end
         
         --// Botões de Controle
         local ControlsFrame = Creator:New("Frame", {
-            Name = "Controls",
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, -12, 0.5, 0),
-            Size = UDim2.fromOffset(100, 32),
+            Size = UDim2.fromOffset(120, 32),
             BackgroundTransparency = 1,
             Parent = TitleBar,
         })
         
-        local function CreateControlButton(name, icon, callback)
+        Creator:CreateLayout("List", ControlsFrame, {
+            Direction = Enum.FillDirection.Horizontal,
+            Padding = UDim.new(0, 8),
+        })
+        
+        local function CreateControl(name, icon, tooltip, callback)
             local btn = Creator:New("TextButton", {
                 Name = name,
-                Size = UDim2.fromOffset(28, 28),
-                BackgroundColor3 = ApexLib.Scheme.Surface,
+                Size = UDim2.fromOffset(32, 32),
+                BackgroundColor3 = APEX._THEME.Surface,
                 Text = icon,
                 TextSize = 14,
                 Parent = ControlsFrame,
             })
-            Creator:ApplyCorner(btn, 6)
+            Creator:ApplyCorner(btn, 8)
             
+            -- Hover effects
             btn.MouseEnter:Connect(function()
-                TweenService:Create(btn, TweenInfo.new(0.15), {
-                    BackgroundColor3 = ApexLib.Scheme.Elevated
-                }):Play()
+                AnimationSystem:Play(btn, 0.15, {
+                    BackgroundColor3 = APEX._THEME.SurfaceHover
+                })
             end)
             
             btn.MouseLeave:Connect(function()
-                TweenService:Create(btn, TweenInfo.new(0.15), {
-                    BackgroundColor3 = ApexLib.Scheme.Surface
-                }):Play()
+                AnimationSystem:Play(btn, 0.15, {
+                    BackgroundColor3 = APEX._THEME.Surface
+                })
             end)
             
             btn.MouseButton1Click:Connect(function()
-                Utils:SafeCallback(callback)
+                AnimationSystem:Pulse(btn, 0.95)
+                ErrorHandler:SafeCall(callback)
             end)
             
             return btn
         end
         
-        --// Container de Abas (Sidebar)
+        -- Botões Minimize, Maximize, Close
+        Window.Controls = {
+            Minimize = CreateControl("Minimize", "−", "Minimizar", function()
+                Window:Minimize()
+            end),
+            Maximize = CreateControl("Maximize", "□", "Maximizar", function()
+                Window:Maximize()
+            end),
+            Close = CreateControl("Close", "×", "Fechar", function()
+                Window:Close()
+            end),
+        }
+        
+        -- Estilo especial para close
+        Window.Controls.Close.BackgroundColor3 = APEX._THEME.Surface
+        Window.Controls.Close.MouseEnter:Connect(function()
+            AnimationSystem:Play(Window.Controls.Close, 0.15, {
+                BackgroundColor3 = APEX._THEME.Error
+            })
+        end)
+        
+        --// Container de Abas (Sidebar Moderna)
         local Sidebar = Creator:New("Frame", {
             Name = "Sidebar",
-            Position = UDim2.fromOffset(12, 60),
-            Size = UDim2.new(0, 180, 1, -72),
-            BackgroundColor3 = ApexLib.Scheme.Surface,
+            Position = UDim2.fromOffset(12, 62),
+            Size = UDim2.new(0, 200, 1, -74),
+            BackgroundColor3 = APEX._THEME.Surface,
             Parent = MainFrame,
         })
         Creator:ApplyCorner(Sidebar)
         
         local TabList = Creator:New("ScrollingFrame", {
             Name = "TabList",
-            Size = UDim2.new(1, -12, 1, -12),
-            Position = UDim2.fromOffset(6, 6),
+            Size = UDim2.new(1, -16, 1, -16),
+            Position = UDim2.fromOffset(8, 8),
             BackgroundTransparency = 1,
             ScrollBarThickness = 2,
-            ScrollBarImageColor3 = ApexLib.Scheme.Border,
-            CanvasSize = UDim2.fromScale(0, 0),
+            ScrollBarImageColor3 = APEX._THEME.Border,
             AutomaticCanvasSize = Enum.AutomaticSize.Y,
             Parent = Sidebar,
         })
         
-        Creator:New("UIListLayout", {
+        Creator:CreateLayout("List", TabList, {
             Padding = UDim.new(0, 4),
-            Parent = TabList,
         })
         
-        --// Container de Conteúdo
-        local ContentFrame = Creator:New("Frame", {
+        --// Área de Conteúdo
+        local ContentArea = Creator:New("Frame", {
             Name = "Content",
-            Position = UDim2.fromOffset(204, 60),
-            Size = UDim2.new(1, -216, 1, -72),
+            Position = UDim2.fromOffset(224, 62),
+            Size = UDim2.new(1, -236, 1, -74),
             BackgroundTransparency = 1,
             Parent = MainFrame,
         })
         
-        --// Métodos da Janela
-        function Window:AddTab(info)
-            local Tab = {
-                Name = info.Name or "Tab",
-                Icon = info.Icon,
-                Description = info.Description or "",
-                Groups = {},
-                Order = info.Order or #Window.Tabs + 1,
-            }
+        Window.ContentArea = ContentArea
+        
+        --// Sistema de Dragging (Melhorado)
+        if config.Draggable then
+            local dragging = false
+            local dragStart, startPos
             
-            --// Botão da Aba
-            local TabButton = Creator:New("TextButton", {
-                Name = Tab.Name .. "Tab",
-                Size = UDim2.new(1, 0, 0, 40),
-                BackgroundColor3 = ApexLib.Scheme.Surface,
-                Text = "",
-                Parent = TabList,
-            })
-            Creator:ApplyCorner(TabButton)
-            
-            local TabIcon = nil
-            if Tab.Icon then
-                TabIcon = Creator:New("ImageLabel", {
-                    Name = "Icon",
-                    Position = UDim2.fromOffset(12, 8),
-                    Size = UDim2.fromOffset(24, 24),
-                    Image = Tab.Icon,
-                    ImageColor3 = ApexLib.Scheme.TextSecondary,
-                    Parent = TabButton,
-                })
-            end
-            
-            local TabLabel = Creator:New("TextLabel", {
-                Name = "Label",
-                Position = UDim2.fromOffset(Tab.Icon and 44 or 16, 0),
-                Size = UDim2.new(1, Tab.Icon and -56 or -32, 1, 0),
-                Text = Tab.Name,
-                TextColor3 = ApexLib.Scheme.TextSecondary,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                Parent = TabButton,
-            })
-            
-            --// Container da Aba
-            local TabContainer = Creator:New("Frame", {
-                Name = Tab.Name .. "Container",
-                Size = UDim2.fromScale(1, 1),
-                BackgroundTransparency = 1,
-                Visible = false,
-                Parent = ContentFrame,
-            })
-            
-            local LeftColumn = Creator:New("ScrollingFrame", {
-                Name = "Left",
-                Size = UDim2.new(0.5, -6, 1, 0),
-                BackgroundTransparency = 1,
-                ScrollBarThickness = 0,
-                AutomaticCanvasSize = Enum.AutomaticSize.Y,
-                Parent = TabContainer,
-            })
-            
-            local RightColumn = Creator:New("ScrollingFrame", {
-                Name = "Right",
-                Position = UDim2.new(0.5, 6, 0, 0),
-                Size = UDim2.new(0.5, -6, 1, 0),
-                BackgroundTransparency = 1,
-                ScrollBarThickness = 0,
-                AutomaticCanvasSize = Enum.AutomaticSize.Y,
-                Parent = TabContainer,
-            })
-            
-            Creator:New("UIListLayout", { Padding = UDim.new(0, 12), Parent = LeftColumn })
-            Creator:New("UIListLayout", { Padding = UDim.new(0, 12), Parent = RightColumn })
-            
-            --// Funções da Aba
-            function Tab:Activate()
-                if Window.ActiveTab == Tab then return end
-                
-                if Window.ActiveTab then
-                    Window.ActiveTab:Deactivate()
+            TitleBar.InputBegan:Connect(function(input)
+                if Utils:IsClick(input) then
+                    dragging = true
+                    dragStart = input.Position
+                    startPos = MainFrame.Position
                 end
-                
-                -- Animação de ativação
-                TweenService:Create(TabButton, TweenInfo.new(0.2), {
-                    BackgroundColor3 = ApexLib.Scheme.Primary,
-                }):Play()
-                
-                TweenService:Create(TabLabel, TweenInfo.new(0.2), {
-                    TextColor3 = ApexLib.Scheme.TextPrimary,
-                }):Play()
-                
-                if TabIcon then
-                    TweenService:Create(TabIcon, TweenInfo.new(0.2), {
-                        ImageColor3 = ApexLib.Scheme.TextPrimary,
-                    }):Play()
-                end
-                
-                TabContainer.Visible = true
-                Window.ActiveTab = Tab
-            end
-            
-            function Tab:Deactivate()
-                TweenService:Create(TabButton, TweenInfo.new(0.2), {
-                    BackgroundColor3 = ApexLib.Scheme.Surface,
-                }):Play()
-                
-                TweenService:Create(TabLabel, TweenInfo.new(0.2), {
-                    TextColor3 = ApexLib.Scheme.TextSecondary,
-                }):Play()
-                
-                if TabIcon then
-                    TweenService:Create(TabIcon, TweenInfo.new(0.2), {
-                        ImageColor3 = ApexLib.Scheme.TextSecondary,
-                    }):Play()
-                end
-                
-                TabContainer.Visible = false
-            end
-            
-            function Tab:AddGroupbox(side, name)
-                local Groupbox = {
-                    Name = name or "Group",
-                    Elements = {},
-                    Side = side or "Left",
-                }
-                
-                local Container = side == "Right" and RightColumn or LeftColumn
-                
-                local GroupFrame = Creator:New("Frame", {
-                    Name = name .. "Group",
-                    Size = UDim2.new(1, 0, 0, 0),
-                    AutomaticSize = Enum.AutomaticSize.Y,
-                    BackgroundColor3 = ApexLib.Scheme.Surface,
-                    Parent = Container,
-                })
-                Creator:ApplyCorner(GroupFrame)
-                Creator:ApplyStroke(GroupFrame)
-                
-                local GroupHeader = Creator:New("Frame", {
-                    Name = "Header",
-                    Size = UDim2.new(1, 0, 0, 40),
-                    BackgroundTransparency = 1,
-                    Parent = GroupFrame,
-                })
-                
-                local GroupTitle = Creator:New("TextLabel", {
-                    Position = UDim2.fromOffset(16, 0),
-                    Size = UDim2.new(1, -32, 1, 0),
-                    Text = name,
-                    FontFace = Font.fromEnum(Enum.Font.GothamSemibold),
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Parent = GroupHeader,
-                })
-                
-                local ElementsContainer = Creator:New("Frame", {
-                    Name = "Elements",
-                    Position = UDim2.fromOffset(0, 40),
-                    Size = UDim2.new(1, 0, 1, -40),
-                    AutomaticSize = Enum.AutomaticSize.Y,
-                    BackgroundTransparency = 1,
-                    Parent = GroupFrame,
-                })
-                
-                Creator:New("UIListLayout", {
-                    Padding = UDim.new(0, 8),
-                    Parent = ElementsContainer,
-                })
-                
-                Creator:New("UIPadding", {
-                    PaddingLeft = UDim.new(0, 16),
-                    PaddingRight = UDim.new(0, 16),
-                    PaddingBottom = UDim.new(0, 16),
-                    Parent = ElementsContainer,
-                })
-                
-                --// Métodos de Elementos (simplificado - expandir conforme necessidade)
-                function Groupbox:AddToggle(info)
-                    local Toggle = {
-                        Value = info.Default or false,
-                        Callback = info.Callback,
-                    }
-                    
-                    local ToggleFrame = Creator:New("Frame", {
-                        Size = UDim2.new(1, 0, 0, 36),
-                        BackgroundTransparency = 1,
-                        Parent = ElementsContainer,
-                    })
-                    
-                    local ToggleButton = Creator:New("TextButton", {
-                        Size = UDim2.new(1, 0, 1, 0),
-                        BackgroundTransparency = 1,
-                        Text = "",
-                        Parent = ToggleFrame,
-                    })
-                    
-                    local ToggleLabel = Creator:New("TextLabel", {
-                        Position = UDim2.fromOffset(44, 0),
-                        Size = UDim2.new(1, -44, 1, 0),
-                        Text = info.Text or "Toggle",
-                        TextXAlignment = Enum.TextXAlignment.Left,
-                        Parent = ToggleFrame,
-                    })
-                    
-                    local SwitchFrame = Creator:New("Frame", {
-                        AnchorPoint = Vector2.new(0, 0.5),
-                        Position = UDim2.fromOffset(0, 0.5),
-                        Size = UDim2.fromOffset(36, 20),
-                        BackgroundColor3 = ApexLib.Scheme.Elevated,
-                        Parent = ToggleFrame,
-                    })
-                    Creator:ApplyCorner(SwitchFrame, 10)
-                    
-                    local SwitchKnob = Creator:New("Frame", {
-                        AnchorPoint = Vector2.new(0, 0.5),
-                        Position = UDim2.fromOffset(2, 0.5),
-                        Size = UDim2.fromOffset(16, 16),
-                        BackgroundColor3 = ApexLib.Scheme.TextPrimary,
-                        Parent = SwitchFrame,
-                    })
-                    Creator:ApplyCorner(SwitchKnob, 8)
-                    
-                    function Toggle:SetValue(value)
-                        Toggle.Value = value
-                        
-                        local targetColor = value and ApexLib.Scheme.Primary or ApexLib.Scheme.Elevated
-                        local targetPos = value and UDim2.fromOffset(18, 0.5) or UDim2.fromOffset(2, 0.5)
-                        
-                        TweenService:Create(SwitchFrame, TweenInfo.new(0.2), {
-                            BackgroundColor3 = targetColor,
-                        }):Play()
-                        
-                        TweenService:Create(SwitchKnob, TweenInfo.new(0.2), {
-                            Position = targetPos,
-                        }):Play()
-                        
-                        Utils:SafeCallback(Toggle.Callback, value)
-                    end
-                    
-                    ToggleButton.MouseButton1Click:Connect(function()
-                        Toggle:SetValue(not Toggle.Value)
-                    end)
-                    
-                    -- Set initial state
-                    Toggle:SetValue(Toggle.Value)
-                    
-                    return Toggle
-                end
-                
-                function Groupbox:AddSlider(info)
-                    local Slider = {
-                        Value = info.Default or info.Min or 0,
-                        Min = info.Min or 0,
-                        Max = info.Max or 100,
-                        Callback = info.Callback,
-                    }
-                    
-                    local SliderFrame = Creator:New("Frame", {
-                        Size = UDim2.new(1, 0, 0, info.Compact and 24 or 48),
-                        BackgroundTransparency = 1,
-                        Parent = ElementsContainer,
-                    })
-                    
-                    if not info.Compact then
-                        local SliderLabel = Creator:New("TextLabel", {
-                            Size = UDim2.new(1, 0, 0, 20),
-                            Text = info.Text or "Slider",
-                            TextSize = 13,
-                            Parent = SliderFrame,
-                        })
-                    end
-                    
-                    local Track = Creator:New("TextButton", {
-                        AnchorPoint = info.Compact and Vector2.new(0, 0.5) or Vector2.new(0, 1),
-                        Position = info.Compact and UDim2.fromOffset(0, 0.5) or UDim2.fromOffset(0, 1),
-                        Size = UDim2.new(1, 0, 0, 6),
-                        BackgroundColor3 = ApexLib.Scheme.Elevated,
-                        Text = "",
-                        Parent = SliderFrame,
-                    })
-                    Creator:ApplyCorner(Track, 3)
-                    
-                    local Fill = Creator:New("Frame", {
-                        Size = UDim2.fromScale(0.5, 1),
-                        BackgroundColor3 = ApexLib.Scheme.Primary,
-                        Parent = Track,
-                    })
-                    Creator:ApplyCorner(Fill, 3)
-                    
-                    local ValueLabel = Creator:New("TextLabel", {
-                        AnchorPoint = Vector2.new(0.5, 0.5),
-                        Position = UDim2.fromScale(0.5, 0.5),
-                        Size = UDim2.fromOffset(40, 16),
-                        BackgroundTransparency = 1,
-                        Text = tostring(Slider.Value),
-                        TextSize = 12,
-                        Parent = Track,
-                    })
-                    
-                    function Slider:SetValue(value)
-                        value = Utils:Clamp(value, Slider.Min, Slider.Max)
-                        Slider.Value = value
-                        
-                        local percent = (value - Slider.Min) / (Slider.Max - Slider.Min)
-                        Fill.Size = UDim2.fromScale(percent, 1)
-                        ValueLabel.Text = tostring(Utils:Round(value, info.Rounding or 0))
-                        
-                        Utils:SafeCallback(Slider.Callback, value)
-                    end
-                    
-                    -- Input handling
-                    local dragging = false
-                    
-                    Track.InputBegan:Connect(function(input)
-                        if Utils:IsClickInput(input) then
-                            dragging = true
-                            
-                            local function update()
-                                local absPos = Track.AbsolutePosition.X
-                                local absSize = Track.AbsoluteSize.X
-                                local mouseX = ApexLib.Services.UserInputService:GetMouseLocation().X
-                                
-                                local percent = Utils:Clamp((mouseX - absPos) / absSize, 0, 1)
-                                local value = Slider.Min + (percent * (Slider.Max - Slider.Min))
-                                
-                                Slider:SetValue(value)
-                            end
-                            
-                            update()
-                            
-                            local connection
-                            connection = ApexLib.Services.RunService.RenderStepped:Connect(function()
-                                if not dragging then
-                                    connection:Disconnect()
-                                    return
-                                end
-                                update()
-                            end)
-                        end
-                    end)
-                    
-                    ApexLib.Services.UserInputService.InputEnded:Connect(function(input)
-                        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
-                           input.UserInputType == Enum.UserInputType.Touch then
-                            dragging = false
-                        end
-                    end)
-                    
-                    Slider:SetValue(Slider.Value)
-                    return Slider
-                end
-                
-                function Groupbox:AddDropdown(info)
-                    local Dropdown = {
-                        Value = info.Multi and {} or nil,
-                        Values = info.Values or {},
-                        Multi = info.Multi or false,
-                        Callback = info.Callback,
-                    }
-                    
-                    local DropdownFrame = Creator:New("Frame", {
-                        Size = UDim2.new(1, 0, 0, info.Text and 64 or 40),
-                        BackgroundTransparency = 1,
-                        Parent = ElementsContainer,
-                    })
-                    
-                    if info.Text then
-                        local DropdownLabel = Creator:New("TextLabel", {
-                            Size = UDim2.new(1, 0, 0, 20),
-                            Text = info.Text,
-                            TextSize = 13,
-                            Parent = DropdownFrame,
-                        })
-                    end
-                    
-                    local DropdownButton = Creator:New("TextButton", {
-                        AnchorPoint = Vector2.new(0, 1),
-                        Position = UDim2.fromScale(0, 1),
-                        Size = UDim2.new(1, 0, 0, 36),
-                        BackgroundColor3 = ApexLib.Scheme.Elevated,
-                        Text = "---",
-                        TextXAlignment = Enum.TextXAlignment.Left,
-                        Parent = DropdownFrame,
-                    })
-                    Creator:ApplyCorner(DropdownButton)
-                    Creator:ApplyStroke(DropdownButton)
-                    
-                    Creator:New("UIPadding", {
-                        PaddingLeft = UDim.new(0, 12),
-                        PaddingRight = UDim.new(0, 12),
-                        Parent = DropdownButton,
-                    })
-                    
-                    -- Menu dropdown (simplificado)
-                    local Menu = Creator:New("Frame", {
-                        Position = UDim2.fromOffset(0, 40),
-                        Size = UDim2.new(1, 0, 0, 0),
-                        AutomaticSize = Enum.AutomaticSize.Y,
-                        BackgroundColor3 = ApexLib.Scheme.Surface,
-                        BorderSizePixel = 0,
-                        Visible = false,
-                        ZIndex = 10,
-                        Parent = DropdownFrame,
-                    })
-                    Creator:ApplyCorner(Menu)
-                    Creator:ApplyStroke(Menu)
-                    Creator:ApplyShadow(Menu, 0.3)
-                    
-                    local MenuList = Creator:New("UIListLayout", {
-                        Padding = UDim.new(0, 2),
-                        Parent = Menu,
-                    })
-                    
-                    Creator:New("UIPadding", {
-                        PaddingTop = UDim.new(0, 4),
-                        PaddingBottom = UDim.new(0, 4),
-                        Parent = Menu,
-                    })
-                    
-                    local function RefreshOptions()
-                        -- Limpar existentes
-                        for _, child in ipairs(Menu:GetChildren()) do
-                            if child:IsA("TextButton") then
-                                child:Destroy()
-                            end
-                        end
-                        
-                        for _, value in ipairs(Dropdown.Values) do
-                            local Option = Creator:New("TextButton", {
-                                Size = UDim2.new(1, 0, 0, 32),
-                                BackgroundColor3 = ApexLib.Scheme.Surface,
-                                Text = tostring(value),
-                                TextXAlignment = Enum.TextXAlignment.Left,
-                                Parent = Menu,
-                            })
-                            
-                            Creator:New("UIPadding", {
-                                PaddingLeft = UDim.new(0, 12),
-                                Parent = Option,
-                            })
-                            
-                            Option.MouseEnter:Connect(function()
-                                TweenService:Create(Option, TweenInfo.new(0.15), {
-                                    BackgroundColor3 = ApexLib.Scheme.Elevated,
-                                }):Play()
-                            end)
-                            
-                            Option.MouseLeave:Connect(function()
-                                TweenService:Create(Option, TweenInfo.new(0.15), {
-                                    BackgroundColor3 = ApexLib.Scheme.Surface,
-                                }):Play()
-                            end)
-                            
-                            Option.MouseButton1Click:Connect(function()
-                                if Dropdown.Multi then
-                                    Dropdown.Value[value] = not Dropdown.Value[value]
-                                else
-                                    Dropdown.Value = value
-                                    Menu.Visible = false
-                                end
-                                Dropdown:UpdateDisplay()
-                                Utils:SafeCallback(Dropdown.Callback, Dropdown.Value)
-                            end)
-                        end
-                    end
-                    
-                    function Dropdown:UpdateDisplay()
-                        if Dropdown.Multi then
-                            local selected = {}
-                            for k, v in pairs(Dropdown.Value) do
-                                if v then table.insert(selected, k) end
-                            end
-                            DropdownButton.Text = #selected > 0 and table.concat(selected, ", ") or "---"
-                        else
-                            DropdownButton.Text = Dropdown.Value and tostring(Dropdown.Value) or "---"
-                        end
-                    end
-                    
-                    DropdownButton.MouseButton1Click:Connect(function()
-                        Menu.Visible = not Menu.Visible
-                        if Menu.Visible then
-                            RefreshOptions()
-                        end
-                    end)
-                    
-                    Dropdown:UpdateDisplay()
-                    return Dropdown
-                end
-                
-                -- Adicionar outros elementos aqui (Input, Button, ColorPicker, etc.)
-                
-                return Groupbox
-            end
-            
-            TabButton.MouseButton1Click:Connect(function()
-                Tab:Activate()
             end)
             
-            table.insert(Window.Tabs, Tab)
-            
-            -- Auto-ativar primeira aba
-            if #Window.Tabs == 1 then
-                Tab:Activate()
-            end
-            
-            return Tab
-        end
-        
-        --// Funcionalidades da Janela
-        function Window:Minimize()
-            Window.IsMinimized = true
-            TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
-                Size = UDim2.fromOffset(MainFrame.Size.X.Offset, 48),
-            }):Play()
-        end
-        
-        function Window:Maximize()
-            Window.IsMaximized = not Window.IsMaximized
-            local targetSize = Window.IsMaximized and UDim2.fromOffset(
-                ApexLib.Services.Workspace.CurrentCamera.ViewportSize.X - 40,
-                ApexLib.Services.Workspace.CurrentCamera.ViewportSize.Y - 40
-            ) or Window.Size
-            
-            TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
-                Size = targetSize,
-                Position = Window.IsMaximized and UDim2.fromOffset(20, 20) or Window.Position,
-            }):Play()
-        end
-        
-        function Window:Close()
-            TweenService:Create(MainFrame, TweenInfo.new(0.2), {
-                Size = UDim2.fromScale(0, 0),
-                Position = UDim2.fromScale(0.5, 0.5),
-            }):Play()
-            
-            task.delay(0.2, function()
-                ScreenGui:Destroy()
+            local dragConnection = APEX._SERVICES.UserInputService.InputChanged:Connect(function(input)
+                if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                    local delta = input.Position - dragStart
+                    local newPos = UDim2.new(
+                        startPos.X.Scale, startPos.X.Offset + delta.X,
+                        startPos.Y.Scale, startPos.Y.Offset + delta.Y
+                    )
+                    
+                    -- Limites da tela
+                    local viewport = APEX._SERVICES.Workspace.CurrentCamera.ViewportSize
+                    newPos = UDim2.new(
+                        0, Utils:Clamp(newPos.X.Offset, 0, viewport.X - 100),
+                        0, Utils:Clamp(newPos.Y.Offset, 0, viewport.Y - 100)
+                    )
+                    
+                    MainFrame.Position = newPos
+                end
             end)
+            
+            local releaseConnection = APEX._SERVICES.UserInputService.InputEnded:Connect(function(input)
+                if Utils:IsClick(input) then
+                    dragging = false
+                end
+            end)
+            
+            table.insert(Window._Connections, dragConnection)
+            table.insert(Window._Connections, releaseConnection)
         end
         
-        --// Dragging System (Melhorado)
-        local dragging = false
-        local dragStart, startPos
-        
-        TitleBar.InputBegan:Connect(function(input)
-            if Utils:IsClickInput(input) then
-                dragging = true
-                dragStart = input.Position
-                startPos = MainFrame.Position
-            end
-        end)
-        
-        ApexLib.Services.UserInputService.InputChanged:Connect(function(input)
-            if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-                local delta = input.Position - dragStart
-                MainFrame.Position = UDim2.new(
-                    startPos.X.Scale, startPos.X.Offset + delta.X,
-                    startPos.Y.Scale, startPos.Y.Offset + delta.Y
-                )
-            end
-        end)
-        
-        ApexLib.Services.UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = false
-            end
-        end)
-        
-        --// Resizing (Se habilitado)
+        --// Sistema de Resize (Avançado)
         if config.Resizable then
             local ResizeHandle = Creator:New("TextButton", {
+                Name = "ResizeHandle",
                 AnchorPoint = Vector2.new(1, 1),
                 Position = UDim2.fromScale(1, 1),
                 Size = UDim2.fromOffset(20, 20),
@@ -1132,73 +1060,1381 @@ do
                 Parent = MainFrame,
             })
             
+            local resizeIcon = Creator:New("ImageLabel", {
+                Size = UDim2.fromScale(0.6, 0.6),
+                Position = UDim2.fromScale(0.2, 0.2),
+                Image = "rbxassetid://7072725342", -- Resize icon
+                ImageColor3 = APEX._THEME.TextMuted,
+                ImageTransparency = 0.5,
+                Parent = ResizeHandle,
+            })
+            
             local resizing = false
             local resizeStart, startSize
             
             ResizeHandle.InputBegan:Connect(function(input)
-                if Utils:IsClickInput(input) then
+                if Utils:IsClick(input) then
                     resizing = true
                     resizeStart = input.Position
                     startSize = MainFrame.Size
                 end
             end)
             
-            ApexLib.Services.UserInputService.InputChanged:Connect(function(input)
+            local resizeConnection = APEX._SERVICES.UserInputService.InputChanged:Connect(function(input)
                 if resizing and input.UserInputType == Enum.UserInputType.MouseMovement then
                     local delta = input.Position - resizeStart
                     local newSize = UDim2.fromOffset(
-                        math.max(Window.MinSize.X, startSize.X.Offset + delta.X),
-                        math.max(Window.MinSize.Y, startSize.Y.Offset + delta.Y)
+                        Utils:Clamp(startSize.X.Offset + delta.X, config.MinSize.X, config.MaxSize.X),
+                        Utils:Clamp(startSize.Y.Offset + delta.Y, config.MinSize.Y, config.MaxSize.Y)
                     )
                     MainFrame.Size = newSize
                 end
             end)
             
-            ApexLib.Services.UserInputService.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local releaseResize = APEX._SERVICES.UserInputService.InputEnded:Connect(function(input)
+                if Utils:IsClick(input) then
                     resizing = false
+                end
+            end)
+            
+            table.insert(Window._Connections, resizeConnection)
+            table.insert(Window._Connections, releaseResize)
+        end
+        
+        --// Métodos da Janela
+        function Window:Minimize()
+            if self.IsMinimized then return end
+            self.IsMinimized = true
+            
+            AnimationSystem:Play(self.MainFrame, 0.3, {
+                Size = UDim2.fromOffset(self.MainFrame.Size.X.Offset, 50),
+            }, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+            
+            Sidebar.Visible = false
+            ContentArea.Visible = false
+        end
+        
+        function Window:Maximize()
+            self.IsMaximized = not self.IsMaximized
+            
+            if self.IsMaximized then
+                self._OriginalSize = self.MainFrame.Size
+                self._OriginalPos = self.MainFrame.Position
+                
+                local viewport = APEX._SERVICES.Workspace.CurrentCamera.ViewportSize
+                AnimationSystem:Play(self.MainFrame, 0.3, {
+                    Size = UDim2.fromOffset(viewport.X - 40, viewport.Y - 40),
+                    Position = UDim2.fromOffset(20, 20),
+                }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            else
+                AnimationSystem:Play(self.MainFrame, 0.3, {
+                    Size = self._OriginalSize,
+                    Position = self._OriginalPos,
+                }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            end
+            
+            Sidebar.Visible = true
+            ContentArea.Visible = true
+        end
+        
+        function Window:Close()
+            if self.IsDestroyed then return end
+            self.IsDestroyed = true
+            
+            -- Animação de saída
+            AnimationSystem:Play(self.MainFrame, 0.2, {
+                Size = UDim2.fromScale(0, 0),
+                Position = UDim2.fromScale(0.5, 0.5),
+                AnchorPoint = Vector2.new(0.5, 0.5),
+            }, Enum.EasingStyle.Back, Enum.EasingDirection.In, function()
+                -- Limpar conexões
+                for _, conn in ipairs(self._Connections) do
+                    if conn then conn:Disconnect() end
+                end
+                
+                self.ScreenGui:Destroy()
+                
+                -- Remover da lista global
+                for i, w in ipairs(APEX.Windows) do
+                    if w == self then
+                        table.remove(APEX.Windows, i)
+                        break
+                    end
                 end
             end)
         end
         
-        ApexLib.CurrentWindow = Window
-        table.insert(ApexLib.Windows, Window)
+        function Window:Toggle()
+            self.MainFrame.Visible = not self.MainFrame.Visible
+            APEX._SYSTEMS.States.IsOpen = self.MainFrame.Visible
+        end
         
-        return Window
+        function Window:AddTab(tabConfig)
+            APEX._IDS.Tab += 1
+            
+            local Tab = {
+                ID = APEX._IDS.Tab,
+                Window = self,
+                Name = tabConfig.Name or "Tab " .. APEX._IDS.Tab,
+                Icon = tabConfig.Icon,
+                Description = tabConfig.Description or "",
+                Order = tabConfig.Order or APEX._IDS.Tab,
+                Groups = {},
+                Elements = {},
+                _Connections = {},
+            }
+            
+            --// Botão da Aba
+            local TabButton = Creator:New("TextButton", {
+                Name = "Tab_" .. Tab.ID,
+                Size = UDim2.new(1, 0, 0, 44),
+                BackgroundColor3 = APEX._THEME.Surface,
+                Text = "",
+                LayoutOrder = Tab.Order,
+                Parent = TabList,
+            })
+            Creator:ApplyCorner(TabButton, 8)
+            
+            -- Ícone
+            local IconLabel
+            if Tab.Icon then
+                IconLabel = Creator:New("ImageLabel", {
+                    Size = UDim2.fromOffset(22, 22),
+                    Position = UDim2.fromOffset(12, 11),
+                    Image = Tab.Icon,
+                    ImageColor3 = APEX._THEME.TextSecondary,
+                    Parent = TabButton,
+                })
+            end
+            
+            -- Label
+            local NameLabel = Creator:New("TextLabel", {
+                Size = UDim2.new(1, Tab.Icon and -50 or -24, 1, 0),
+                Position = UDim2.fromOffset(Tab.Icon and 44 or 16, 0),
+                Text = Tab.Name,
+                TextColor3 = APEX._THEME.TextSecondary,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Parent = TabButton,
+            })
+            
+            -- Indicador de ativo
+            local ActiveIndicator = Creator:New("Frame", {
+                Size = UDim2.fromOffset(3, 24),
+                Position = UDim2.fromOffset(0, 10),
+                BackgroundColor3 = APEX._THEME.Primary,
+                BackgroundTransparency = 1,
+                Parent = TabButton,
+            })
+            Creator:ApplyCorner(ActiveIndicator, 2)
+            
+            --// Container da Aba
+            local TabContainer = Creator:New("Frame", {
+                Name = "Container_" .. Tab.ID,
+                Size = UDim2.fromScale(1, 1),
+                BackgroundTransparency = 1,
+                Visible = false,
+                Parent = ContentArea,
+            })
+            
+            -- Colunas
+            local LeftColumn = Creator:New("ScrollingFrame", {
+                Name = "Left",
+                Size = UDim2.new(0.5, -8, 1, 0),
+                BackgroundTransparency = 1,
+                ScrollBarThickness = 0,
+                AutomaticCanvasSize = Enum.AutomaticSize.Y,
+                Parent = TabContainer,
+            })
+            Creator:CreateLayout("List", LeftColumn, { Padding = UDim.new(0, 12) })
+            Creator:New("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4), Parent = LeftColumn })
+            
+            local RightColumn = Creator:New("ScrollingFrame", {
+                Name = "Right",
+                Position = UDim2.new(0.5, 8, 0, 0),
+                Size = UDim2.new(0.5, -8, 1, 0),
+                BackgroundTransparency = 1,
+                ScrollBarThickness = 0,
+                AutomaticCanvasSize = Enum.AutomaticSize.Y,
+                Parent = TabContainer,
+            })
+            Creator:CreateLayout("List", RightColumn, { Padding = UDim.new(0, 12) })
+            Creator:New("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4), Parent = RightColumn })
+            
+            Tab.Columns = { Left = LeftColumn, Right = RightColumn }
+            
+            --// Funções da Aba
+            function Tab:Activate()
+                if self.Window.ActiveTab == self then return end
+                
+                -- Desativar anterior
+                if self.Window.ActiveTab then
+                    self.Window.ActiveTab:Deactivate()
+                end
+                
+                -- Animação visual
+                AnimationSystem:Play(TabButton, 0.2, {
+                    BackgroundColor3 = APEX._THEME.Elevated,
+                })
+                AnimationSystem:Play(ActiveIndicator, 0.2, {
+                    BackgroundTransparency = 0,
+                })
+                NameLabel.TextColor3 = APEX._THEME.TextPrimary
+                if IconLabel then
+                    IconLabel.ImageColor3 = APEX._THEME.Primary
+                end
+                
+                -- Mostrar conteúdo com animação
+                TabContainer.Visible = true
+                AnimationSystem:SlideIn(TabContainer, "Right", 0.3)
+                
+                self.Window.ActiveTab = self
+            end
+            
+            function Tab:Deactivate()
+                AnimationSystem:Play(TabButton, 0.2, {
+                    BackgroundColor3 = APEX._THEME.Surface,
+                })
+                AnimationSystem:Play(ActiveIndicator, 0.2, {
+                    BackgroundTransparency = 1,
+                })
+                NameLabel.TextColor3 = APEX._THEME.TextSecondary
+                if IconLabel then
+                    IconLabel.ImageColor3 = APEX._THEME.TextSecondary
+                end
+                
+                TabContainer.Visible = false
+            end
+            
+            function Tab:AddGroupbox(side, name)
+                APEX._IDS.Element += 1
+                
+                local Group = {
+                    ID = APEX._IDS.Element,
+                    Name = name or "Group",
+                    Tab = self,
+                    Elements = {},
+                }
+                
+                local Container = side == "Right" and RightColumn or LeftColumn
+                
+                local GroupFrame = Creator:New("Frame", {
+                    Name = "Group_" .. Group.ID,
+                    Size = UDim2.new(1, 0, 0, 0),
+                    AutomaticSize = Enum.AutomaticSize.Y,
+                    BackgroundColor3 = APEX._THEME.Surface,
+                    Parent = Container,
+                })
+                Creator:ApplyCorner(GroupFrame)
+                Creator:ApplyStroke(GroupFrame)
+                
+                -- Header
+                local Header = Creator:New("Frame", {
+                    Size = UDim2.new(1, 0, 0, 44),
+                    BackgroundTransparency = 1,
+                    Parent = GroupFrame,
+                })
+                
+                local HeaderText = Creator:New("TextLabel", {
+                    Size = UDim2.new(1, -32, 1, 0),
+                    Position = UDim2.fromOffset(16, 0),
+                    Text = Group.Name,
+                    FontFace = Font.fromEnum(Enum.Font.GothamSemibold),
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    Parent = Header,
+                })
+                
+                -- Linha divisória
+                Creator:New("Frame", {
+                    Size = UDim2.new(1, -32, 0, 1),
+                    Position = UDim2.fromOffset(16, 43),
+                    BackgroundColor3 = APEX._THEME.Border,
+                    Parent = Header,
+                })
+                
+                -- Container de elementos
+                local ElementsContainer = Creator:New("Frame", {
+                    Size = UDim2.new(1, -32, 1, -60),
+                    Position = UDim2.fromOffset(16, 52),
+                    AutomaticSize = Enum.AutomaticSize.Y,
+                    BackgroundTransparency = 1,
+                    Parent = GroupFrame,
+                })
+                Creator:CreateLayout("List", ElementsContainer, { Padding = UDim.new(0, 10) })
+                
+                --// Métodos de elementos
+                function Group:AddToggle(config)
+                    config = Utils:ValidateConfig(config, {
+                        Text = "Toggle",
+                        Default = false,
+                        Callback = nil,
+                        Keybind = nil,
+                        Color = nil,
+                    })
+                    
+                    local Toggle = {
+                        Value = config.Default,
+                        Callback = config.Callback,
+                    }
+                    
+                    local Frame = Creator:New("Frame", {
+                        Size = UDim2.new(1, 0, 0, 40),
+                        BackgroundTransparency = 1,
+                        Parent = ElementsContainer,
+                    })
+                    
+                    -- Switch moderno
+                    local SwitchBg = Creator:New("Frame", {
+                        AnchorPoint = Vector2.new(1, 0.5),
+                        Position = UDim2.new(1, 0, 0.5, 0),
+                        Size = UDim2.fromOffset(48, 26),
+                        BackgroundColor3 = APEX._THEME.Elevated,
+                        Parent = Frame,
+                    })
+                    Creator:ApplyCorner(SwitchBg, 13)
+                    
+                    local SwitchKnob = Creator:New("Frame", {
+                        AnchorPoint = Vector2.new(0, 0.5),
+                        Position = UDim2.fromOffset(3, 0.5),
+                        Size = UDim2.fromOffset(20, 20),
+                        BackgroundColor3 = APEX._THEME.TextPrimary,
+                        Parent = SwitchBg,
+                    })
+                    Creator:ApplyCorner(SwitchKnob, 10)
+                    
+                    -- Label
+                    local Label = Creator:New("TextLabel", {
+                        Size = UDim2.new(1, -60, 1, 0),
+                        Text = config.Text,
+                        TextXAlignment = Enum.TextXAlignment.Left,
+                        Parent = Frame,
+                    })
+                    
+                    -- Função de update visual
+                    function Toggle:SetValue(value, silent)
+                        self.Value = value
+                        
+                        local targetColor = value and APEX._THEME.Primary or APEX._THEME.Elevated
+                        local targetPos = value and UDim2.fromOffset(25, 0.5) or UDim2.fromOffset(3, 0.5)
+                        
+                        AnimationSystem:Play(SwitchBg, 0.2, { BackgroundColor3 = targetColor })
+                        AnimationSystem:Play(SwitchKnob, 0.2, { Position = targetPos })
+                        
+                        if not silent then
+                            ErrorHandler:SafeCall(self.Callback, value)
+                        end
+                    end
+                    
+                    -- Interação
+                    local ClickRegion = Creator:New("TextButton", {
+                        Size = UDim2.fromScale(1, 1),
+                        BackgroundTransparency = 1,
+                        Text = "",
+                        Parent = Frame,
+                    })
+                    
+                    ClickRegion.MouseButton1Click:Connect(function()
+                        Toggle:SetValue(not Toggle.Value)
+                    end)
+                    
+                    -- Hover effect no label
+                    ClickRegion.MouseEnter:Connect(function()
+                        AnimationSystem:Play(Label, 0.15, { TextColor3 = APEX._THEME.TextPrimary })
+                    end)
+                    ClickRegion.MouseLeave:Connect(function()
+                        AnimationSystem:Play(Label, 0.15, { TextColor3 = APEX._THEME.TextSecondary })
+                    end)
+                    
+                    -- Estado inicial
+                    Toggle:SetValue(config.Default, true)
+                    
+                    table.insert(Group.Elements, Toggle)
+                    return Toggle
+                end
+                
+                function Group:AddSlider(config)
+                    config = Utils:ValidateConfig(config, {
+                        Text = "Slider",
+                        Min = 0,
+                        Max = 100,
+                        Default = 50,
+                        Rounding = 0,
+                        Suffix = "",
+                        Prefix = "",
+                        Compact = false,
+                        Callback = nil,
+                    })
+                    
+                    local Slider = {
+                        Value = config.Default,
+                        Min = config.Min,
+                        Max = config.Max,
+                        Callback = config.Callback,
+                    }
+                    
+                    local height = config.Compact and 32 or 56
+                    local Frame = Creator:New("Frame", {
+                        Size = UDim2.new(1, 0, 0, height),
+                        BackgroundTransparency = 1,
+                        Parent = ElementsContainer,
+                    })
+                    
+                    local labelOffset = 0
+                    if not config.Compact then
+                        local Label = Creator:New("TextLabel", {
+                            Size = UDim2.new(1, 0, 0, 20),
+                            Text = config.Text,
+                            TextSize = 13,
+                            Parent = Frame,
+                        })
+                        labelOffset = 24
+                    end
+                    
+                    -- Track
+                    local Track = Creator:New("TextButton", {
+                        Position = UDim2.fromOffset(0, labelOffset + (config.Compact and 13 or 28)),
+                        Size = UDim2.new(1, 0, 0, 6),
+                        BackgroundColor3 = APEX._THEME.Elevated,
+                        Text = "",
+                        Parent = Frame,
+                    })
+                    Creator:ApplyCorner(Track, 3)
+                    
+                    -- Fill
+                    local Fill = Creator:New("Frame", {
+                        Size = UDim2.fromScale(0.5, 1),
+                        BackgroundColor3 = APEX._THEME.Primary,
+                        Parent = Track,
+                    })
+                    Creator:ApplyCorner(Fill, 3)
+                    
+                    -- Value display
+                    local ValueLabel = Creator:New("TextLabel", {
+                        AnchorPoint = Vector2.new(0.5, 0.5),
+                        Position = UDim2.fromScale(0.5, 0.5),
+                        Size = UDim2.fromOffset(50, 16),
+                        BackgroundTransparency = 1,
+                        Text = tostring(config.Default),
+                        TextSize = 12,
+                        Parent = Track,
+                    })
+                    
+                    function Slider:SetValue(value, silent)
+                        value = Utils:Clamp(value, self.Min, self.Max)
+                        self.Value = value
+                        
+                        local percent = (value - self.Min) / (self.Max - self.Min)
+                        Fill.Size = UDim2.fromScale(percent, 1)
+                        
+                        local displayText = config.Prefix .. Utils:Round(value, config.Rounding) .. config.Suffix
+                        ValueLabel.Text = displayText
+                        
+                        if not silent then
+                            ErrorHandler:SafeCall(self.Callback, value)
+                        end
+                    end
+                    
+                    -- Input handling
+                    local dragging = false
+                    
+                    Track.InputBegan:Connect(function(input)
+                        if Utils:IsClick(input) then
+                            dragging = true
+                            local function update()
+                                local absPos = Track.AbsolutePosition.X
+                                local absSize = Track.AbsoluteSize.X
+                                local mouseX = APEX._SERVICES.UserInputService:GetMouseLocation().X
+                                
+                                local percent = Utils:Clamp((mouseX - absPos) / absSize, 0, 1)
+                                local value = self.Min + (percent * (self.Max - self.Min))
+                                self:SetValue(value)
+                            end
+                            update()
+                            
+                            while dragging do
+                                update()
+                                APEX._SERVICES.RunService.RenderStepped:Wait()
+                            end
+                        end
+                    end)
+                    
+                    APEX._SERVICES.UserInputService.InputEnded:Connect(function(input)
+                        if Utils:IsClick(input) then
+                            dragging = false
+                        end
+                    end)
+                    
+                    Slider:SetValue(config.Default, true)
+                    table.insert(Group.Elements, Slider)
+                    return Slider
+                end
+                
+                function Group:AddDropdown(config)
+                    config = Utils:ValidateConfig(config, {
+                        Text = "Dropdown",
+                        Values = {},
+                        Default = nil,
+                        Multi = false,
+                        Searchable = false,
+                        MaxVisible = 8,
+                        Callback = nil,
+                    })
+                    
+                    local Dropdown = {
+                        Value = config.Multi and {} or config.Default,
+                        Values = config.Values,
+                        Multi = config.Multi,
+                        Callback = config.Callback,
+                        IsOpen = false,
+                    }
+                    
+                    local Frame = Creator:New("Frame", {
+                        Size = UDim2.new(1, 0, 0, config.Text and 72 or 40),
+                        BackgroundTransparency = 1,
+                        Parent = ElementsContainer,
+                    })
+                    
+                    if config.Text then
+                        local Label = Creator:New("TextLabel", {
+                            Size = UDim2.new(1, 0, 0, 20),
+                            Text = config.Text,
+                            TextSize = 13,
+                            Parent = Frame,
+                        })
+                    end
+                    
+                    -- Button principal
+                    local DropdownBtn = Creator:New("TextButton", {
+                        Position = UDim2.fromOffset(0, config.Text and 28 or 0),
+                        Size = UDim2.new(1, 0, 0, 40),
+                        BackgroundColor3 = APEX._THEME.Elevated,
+                        Text = "---",
+                        TextXAlignment = Enum.TextXAlignment.Left,
+                        Parent = Frame,
+                    })
+                    Creator:ApplyCorner(DropdownBtn)
+                    Creator:ApplyStroke(DropdownBtn)
+                    
+                    Creator:New("UIPadding", {
+                        PaddingLeft = UDim.new(0, 12),
+                        PaddingRight = UDim.new(0, 40),
+                        Parent = DropdownBtn,
+                    })
+                    
+                    -- Ícone de seta
+                    local ArrowIcon = Creator:New("ImageLabel", {
+                        AnchorPoint = Vector2.new(1, 0.5),
+                        Position = UDim2.new(1, -12, 0.5, 0),
+                        Size = UDim2.fromOffset(16, 16),
+                        Image = "rbxassetid://7072706748",
+                        ImageColor3 = APEX._THEME.TextSecondary,
+                        Parent = DropdownBtn,
+                    })
+                    
+                    -- Menu dropdown
+                    local Menu = Creator:New("Frame", {
+                        Position = UDim2.fromOffset(0, 45),
+                        Size = UDim2.new(1, 0, 0, 0),
+                        AutomaticSize = Enum.AutomaticSize.Y,
+                        BackgroundColor3 = APEX._THEME.Surface,
+                        BorderSizePixel = 0,
+                        Visible = false,
+                        ZIndex = 10,
+                        Parent = Frame,
+                    })
+                    Creator:ApplyCorner(Menu)
+                    Creator:ApplyStroke(Menu)
+                    Creator:ApplyShadow(Menu, 0.4)
+                    
+                    local MenuList = Creator:New("ScrollingFrame", {
+                        Size = UDim2.new(1, -16, 1, -16),
+                        Position = UDim2.fromOffset(8, 8),
+                        BackgroundTransparency = 1,
+                        ScrollBarThickness = 2,
+                        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+                        Parent = Menu,
+                    })
+                    Creator:CreateLayout("List", MenuList, { Padding = UDim.new(0, 2) })
+                    
+                    -- Limitar altura
+                    local maxItems = math.min(#config.Values, config.MaxVisible)
+                    Menu.Size = UDim2.new(1, 0, 0, maxItems * 36 + 16)
+                    
+                    function Dropdown:Refresh()
+                        -- Limpar
+                        for _, child in ipairs(MenuList:GetChildren()) do
+                            if child:IsA("TextButton") then child:Destroy() end
+                        end
+                        
+                        -- Criar opções
+                        for _, value in ipairs(self.Values) do
+                            local OptionBtn = Creator:New("TextButton", {
+                                Size = UDim2.new(1, 0, 0, 34),
+                                BackgroundColor3 = APEX._THEME.Surface,
+                                Text = tostring(value),
+                                TextXAlignment = Enum.TextXAlignment.Left,
+                                Parent = MenuList,
+                            })
+                            Creator:ApplyCorner(OptionBtn, 6)
+                            
+                            Creator:New("UIPadding", {
+                                PaddingLeft = UDim.new(0, 12),
+                                Parent = OptionBtn,
+                            })
+                            
+                            -- Checkmark para multi
+                            if self.Multi then
+                                local isSelected = self.Value[value] == true
+                                local Check = Creator:New("Frame", {
+                                    AnchorPoint = Vector2.new(1, 0.5),
+                                    Position = UDim2.new(1, -12, 0.5, 0),
+                                    Size = UDim2.fromOffset(18, 18),
+                                    BackgroundColor3 = isSelected and APEX._THEME.Primary or APEX._THEME.Elevated,
+                                    Parent = OptionBtn,
+                                })
+                                Creator:ApplyCorner(Check, 4)
+                            end
+                            
+                            OptionBtn.MouseEnter:Connect(function()
+                                AnimationSystem:Play(OptionBtn, 0.15, {
+                                    BackgroundColor3 = APEX._THEME.ElevatedHover,
+                                })
+                            end)
+                            
+                            OptionBtn.MouseLeave:Connect(function()
+                                AnimationSystem:Play(OptionBtn, 0.15, {
+                                    BackgroundColor3 = APEX._THEME.Surface,
+                                })
+                            end)
+                            
+                            OptionBtn.MouseButton1Click:Connect(function()
+                                if self.Multi then
+                                    self.Value[value] = not self.Value[value]
+                                    self:UpdateDisplay()
+                                else
+                                    self.Value = value
+                                    self:Close()
+                                end
+                                ErrorHandler:SafeCall(self.Callback, self.Value)
+                            end)
+                        end
+                    end
+                    
+                    function Dropdown:UpdateDisplay()
+                        if self.Multi then
+                            local selected = {}
+                            for k, v in pairs(self.Value) do
+                                if v then table.insert(selected, k) end
+                            end
+                            DropdownBtn.Text = #selected > 0 and table.concat(selected, ", ") or "---"
+                        else
+                            DropdownBtn.Text = self.Value and tostring(self.Value) or "---"
+                        end
+                    end
+                    
+                    function Dropdown:Open()
+                        self.IsOpen = true
+                        Menu.Visible = true
+                        AnimationSystem:Play(ArrowIcon, 0.2, { Rotation = 180 })
+                        self:Refresh()
+                    end
+                    
+                    function Dropdown:Close()
+                        self.IsOpen = false
+                        Menu.Visible = false
+                        AnimationSystem:Play(ArrowIcon, 0.2, { Rotation = 0 })
+                    end
+                    
+                    function Dropdown:Toggle()
+                        if self.IsOpen then self:Close() else self:Open() end
+                    end
+                    
+                    DropdownBtn.MouseButton1Click:Connect(function()
+                        self:Toggle()
+                    end)
+                    
+                    -- Fechar ao clicar fora
+                    APEX._SERVICES.UserInputService.InputBegan:Connect(function(input)
+                        if self.IsOpen and Utils:IsClick(input) then
+                            local mousePos = APEX._SERVICES.UserInputService:GetMouseLocation()
+                            local absPos = Menu.AbsolutePosition
+                            local absSize = Menu.AbsoluteSize
+                            
+                            if mousePos.X < absPos.X or mousePos.X > absPos.X + absSize.X or
+                               mousePos.Y < absPos.Y or mousePos.Y > absPos.Y + absSize.Y then
+                                self:Close()
+                            end
+                        end
+                    end)
+                    
+                    Dropdown:UpdateDisplay()
+                    table.insert(Group.Elements, Dropdown)
+                    return Dropdown
+                end
+                
+                function Group:AddButton(config)
+                    config = Utils:ValidateConfig(config, {
+                        Text = "Button",
+                        Callback = nil,
+                        Style = "Default", -- Default, Primary, Danger
+                        Icon = nil,
+                    })
+                    
+                    local Button = {
+                        Callback = config.Callback,
+                    }
+                    
+                    local Frame = Creator:New("Frame", {
+                        Size = UDim2.new(1, 0, 0, 40),
+                        BackgroundTransparency = 1,
+                        Parent = ElementsContainer,
+                    })
+                    
+                    local Btn = Creator:New("TextButton", {
+                        Size = UDim2.fromScale(1, 1),
+                        BackgroundColor3 = config.Style == "Primary" and APEX._THEME.Primary or 
+                                           config.Style == "Danger" and APEX._THEME.Error or 
+                                           APEX._THEME.Elevated,
+                        Text = config.Text,
+                        Parent = Frame,
+                    })
+                    Creator:ApplyCorner(Btn)
+                    
+                    if config.Icon then
+                        local Icon = Creator:New("ImageLabel", {
+                            Size = UDim2.fromOffset(18, 18),
+                            Position = UDim2.fromOffset(12, 11),
+                            Image = config.Icon,
+                            ImageColor3 = config.Style == "Primary" and APEX._THEME.TextPrimary or APEX._THEME.TextSecondary,
+                            Parent = Btn,
+                        })
+                        Btn.TextXAlignment = Enum.TextXAlignment.Left
+                        Creator:New("UIPadding", { PaddingLeft = UDim.new(0, 38), Parent = Btn })
+                    end
+                    
+                    -- Effects
+                    Btn.MouseEnter:Connect(function()
+                        local targetColor = config.Style == "Primary" and APEX._THEME.PrimaryLight or
+                                          config.Style == "Danger" and APEX._THEME.Error or
+                                          APEX._THEME.ElevatedHover
+                        AnimationSystem:Play(Btn, 0.15, { BackgroundColor3 = targetColor })
+                    end)
+                    
+                    Btn.MouseLeave:Connect(function()
+                        local targetColor = config.Style == "Primary" and APEX._THEME.Primary or
+                                          config.Style == "Danger" and APEX._THEME.Error or
+                                          APEX._THEME.Elevated
+                        AnimationSystem:Play(Btn, 0.15, { BackgroundColor3 = targetColor })
+                    end)
+                    
+                    Btn.MouseButton1Down:Connect(function()
+                        AnimationSystem:Play(Btn, 0.1, { Size = UDim2.fromScale(0.98, 0.95) })
+                    end)
+                    
+                    Btn.MouseButton1Up:Connect(function()
+                        AnimationSystem:Play(Btn, 0.1, { Size = UDim2.fromScale(1, 1) })
+                    end)
+                    
+                    Btn.MouseButton1Click:Connect(function()
+                        AnimationSystem:Pulse(Btn)
+                        ErrorHandler:SafeCall(Button.Callback)
+                    end)
+                    
+                    table.insert(Group.Elements, Button)
+                    return Button
+                end
+                
+                function Group:AddInput(config)
+                    config = Utils:ValidateConfig(config, {
+                        Text = "Input",
+                        Default = "",
+                        Placeholder = "Digite aqui...",
+                        Numeric = false,
+                        Finished = true,
+                        ClearOnFocus = false,
+                        Callback = nil,
+                    })
+                    
+                    local Input = {
+                        Value = config.Default,
+                        Callback = config.Callback,
+                    }
+                    
+                    local Frame = Creator:New("Frame", {
+                        Size = UDim2.new(1, 0, 0, config.Text and 72 or 40),
+                        BackgroundTransparency = 1,
+                        Parent = ElementsContainer,
+                    })
+                    
+                    if config.Text then
+                        local Label = Creator:New("TextLabel", {
+                            Size = UDim2.new(1, 0, 0, 20),
+                            Text = config.Text,
+                            TextSize = 13,
+                            Parent = Frame,
+                        })
+                    end
+                    
+                    local InputBox = Creator:New("TextBox", {
+                        Position = UDim2.fromOffset(0, config.Text and 28 or 0),
+                        Size = UDim2.new(1, 0, 0, 40),
+                        BackgroundColor3 = APEX._THEME.Elevated,
+                        Text = config.Default,
+                        PlaceholderText = config.Placeholder,
+                        ClearTextOnFocus = config.ClearOnFocus,
+                        Parent = Frame,
+                    })
+                    Creator:ApplyCorner(InputBox)
+                    Creator:ApplyStroke(InputBox)
+                    
+                    Creator:New("UIPadding", {
+                        PaddingLeft = UDim.new(0, 12),
+                        PaddingRight = UDim.new(0, 12),
+                        Parent = InputBox,
+                    })
+                    
+                    -- Validação numérica
+                    if config.Numeric then
+                        InputBox:GetPropertyChangedSignal("Text"):Connect(function()
+                            local text = InputBox.Text
+                            if text ~= "" and not tonumber(text) then
+                                InputBox.Text = text:gsub("[^%d%.%-]", "")
+                            end
+                        end)
+                    end
+                    
+                    function Input:SetValue(value, silent)
+                        self.Value = value
+                        InputBox.Text = tostring(value)
+                        if not silent then
+                            ErrorHandler:SafeCall(self.Callback, value)
+                        end
+                    end
+                    
+                    if config.Finished then
+                        InputBox.FocusLost:Connect(function()
+                            self.Value = InputBox.Text
+                            ErrorHandler:SafeCall(self.Callback, self.Value)
+                        end)
+                    else
+                        InputBox:GetPropertyChangedSignal("Text"):Connect(function()
+                            self.Value = InputBox.Text
+                            ErrorHandler:SafeCall(self.Callback, self.Value)
+                        end)
+                    end
+                    
+                    -- Focus effects
+                    InputBox.Focused:Connect(function()
+                        AnimationSystem:Play(InputBox, 0.2, {
+                            BackgroundColor3 = APEX._THEME.ElevatedHover,
+                        })
+                        Creator:ApplyStroke(InputBox, APEX._THEME.Primary, 2)
+                    end)
+                    
+                    InputBox.FocusLost:Connect(function()
+                        AnimationSystem:Play(InputBox, 0.2, {
+                            BackgroundColor3 = APEX._THEME.Elevated,
+                        })
+                        Creator:ApplyStroke(InputBox, APEX._THEME.Border, 1)
+                    end)
+                    
+                    table.insert(Group.Elements, Input)
+                    return Input
+                end
+                
+                -- Adicionar mais elementos: ColorPicker, KeyPicker, etc.
+                
+                table.insert(self.Groups, Group)
+                return Group
+            end
+            
+            TabButton.MouseButton1Click:Connect(function()
+                Tab:Activate()
+            end)
+            
+            table.insert(self.Tabs, Tab)
+            
+            -- Auto-ativar primeira aba
+            if #self.Tabs == 1 then
+                Tab:Activate()
+            end
+            
+            return Tab
+        end
+        
+        --// Keybind para toggle
+        if config.Keybind then
+            local keyConnection = APEX._SERVICES.UserInputService.InputBegan:Connect(function(input)
+                if input.KeyCode == config.Keybind and not APEX._SERVICES.UserInputService:GetFocusedTextBox() then
+                    self:Toggle()
+                end
+            end)
+            table.insert(self._Connections, keyConnection)
+        end
+        
+        -- Animação de abertura
+        if config.AnimateOpen and config.AutoShow then
+            MainFrame.Size = UDim2.fromScale(0, 0)
+            MainFrame.Visible = true
+            
+            task.delay(0.1, function()
+                AnimationSystem:Play(MainFrame, 0.4, {
+                    Size = config.Size,
+                }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            end)
+        else
+            MainFrame.Visible = config.AutoShow
+        end
+        
+        table.insert(APEX.Windows, self)
+        APEX.ActiveWindow = self
+        
+        return self
     end
 end
-ApexLib.Window = WindowSystem
+APEX.Window = WindowSystem
 
---// Sistema de Notificações Moderno
+--// =============================================================================
+// SISTEMA DE NOTIFICAÇÕES (Notification System)
+// =============================================================================
+
 local NotificationSystem = {}
 do
-    function NotificationSystem:Notify(info)
-        info = info or {}
+    local NotificationContainer = nil
+    local ActiveNotifications = {}
+    
+    function NotificationSystem:Init()
+        if NotificationContainer then return end
         
-        local Notification = {
-            Title = info.Title or "Notification",
-            Description = info.Description or "",
-            Type = info.Type or "Info", -- Info, Success, Warning, Error
-            Duration = info.Duration or 5,
-            Callback = info.Callback,
+        NotificationContainer = Creator:New("Frame", {
+            Name = "Notifications",
+            AnchorPoint = Vector2.new(1, 0),
+            Position = UDim2.new(1, -20, 0, 20),
+            Size = UDim2.fromOffset(320, 0),
+            AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundTransparency = 1,
+            Parent = APEX._SERVICES.CoreGui or APEX._SERVICES.Players.LocalPlayer:WaitForChild("PlayerGui"),
+        })
+        
+        Creator:CreateLayout("List", NotificationContainer, {
+            Padding = UDim.new(0, 10),
+            VAlign = Enum.VerticalAlignment.Top,
+        })
+    end
+    
+    function NotificationSystem:Notify(config)
+        self:Init()
+        
+        config = Utils:ValidateConfig(config, {
+            Title = "Notificação",
+            Description = "",
+            Type = "Info", -- Info, Success, Warning, Error
+            Duration = 5,
+            Sound = false,
+            Callback = nil,
+            Actions = {}, -- { {Text = "OK", Callback = func} }
+        })
+        
+        APEX._IDS.Notification += 1
+        
+        -- Cores por tipo
+        local typeColors = {
+            Info = APEX._THEME.Info,
+            Success = APEX._THEME.Success,
+            Warning = APEX._THEME.Warning,
+            Error = APEX._THEME.Error,
         }
         
-        -- Criar notificação com animações suaves
-        -- (Implementação similar ao Window mas simplificada)
+        local accentColor = typeColors[config.Type] or APEX._THEME.Info
         
-        return Notification
+        -- Criar notificação
+        local NotifFrame = Creator:New("Frame", {
+            Name = "Notif_" .. APEX._IDS.Notification,
+            Size = UDim2.new(1, 0, 0, 0),
+            AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundColor3 = APEX._THEME.Surface,
+            Parent = NotificationContainer,
+        })
+        Creator:ApplyCorner(NotifFrame, 10)
+        Creator:ApplyShadow(NotifFrame, 0.3)
+        
+        -- Barra de cor indicadora
+        local ColorBar = Creator:New("Frame", {
+            Size = UDim2.fromOffset(4, 0),
+            AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundColor3 = accentColor,
+            Parent = NotifFrame,
+        })
+        Creator:ApplyCorner(ColorBar, 2)
+        
+        -- Conteúdo
+        local Content = Creator:New("Frame", {
+            Position = UDim2.fromOffset(16, 0),
+            Size = UDim2.new(1, -32, 1, 0),
+            AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundTransparency = 1,
+            Parent = NotifFrame,
+        })
+        Creator:New("UIPadding", {
+            PaddingTop = UDim.new(0, 12),
+            PaddingBottom = UDim.new(0, 12),
+            Parent = Content,
+        })
+        
+        -- Título
+        local Title = Creator:New("TextLabel", {
+            Size = UDim2.new(1, -30, 0, 20),
+            Text = config.Title,
+            FontFace = Font.fromEnum(Enum.Font.GothamBold),
+            Parent = Content,
+        })
+        
+        -- Botão fechar
+        local CloseBtn = Creator:New("TextButton", {
+            AnchorPoint = Vector2.new(1, 0),
+            Position = UDim2.new(1, 0, 0, 0),
+            Size = UDim2.fromOffset(20, 20),
+            BackgroundTransparency = 1,
+            Text = "×",
+            TextSize = 18,
+            TextColor3 = APEX._THEME.TextMuted,
+            Parent = Content,
+        })
+        
+        -- Descrição
+        local Description
+        if config.Description and config.Description ~= "" then
+            Description = Creator:New("TextLabel", {
+                Position = UDim2.fromOffset(0, 24),
+                Size = UDim2.new(1, 0, 0, 0),
+                AutomaticSize = Enum.AutomaticSize.Y,
+                Text = config.Description,
+                TextSize = 13,
+                TextColor3 = APEX._THEME.TextSecondary,
+                TextWrapped = true,
+                Parent = Content,
+            })
+        end
+        
+        -- Timer bar
+        local TimerBar = Creator:New("Frame", {
+            AnchorPoint = Vector2.new(0, 1),
+            Position = UDim2.new(0, 0, 1, 0),
+            Size = UDim2.new(1, 0, 0, 3),
+            BackgroundColor3 = accentColor,
+            BackgroundTransparency = 0.5,
+            Parent = NotifFrame,
+        })
+        
+        -- Animação de entrada
+        NotifFrame.Position = UDim2.fromOffset(350, 0)
+        AnimationSystem:Play(NotifFrame, 0.4, {
+            Position = UDim2.fromOffset(0, 0),
+        }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        
+        -- Timer animation
+        local timerTween = AnimationSystem:Play(TimerBar, config.Duration, {
+            Size = UDim2.new(0, 0, 0, 3),
+        }, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+        
+        -- Função de destruição
+        local function destroy()
+            AnimationSystem:Play(NotifFrame, 0.3, {
+                Position = UDim2.fromOffset(350, 0),
+                BackgroundTransparency = 1,
+            }, Enum.EasingStyle.Quart, Enum.EasingDirection.In, function()
+                NotifFrame:Destroy()
+                -- Remover da lista
+                for i, n in ipairs(ActiveNotifications) do
+                    if n.Frame == NotifFrame then
+                        table.remove(ActiveNotifications, i)
+                        break
+                    end
+                end
+            end)
+        end
+        
+        CloseBtn.MouseButton1Click:Connect(destroy)
+        
+        -- Auto destroy
+        task.delay(config.Duration, destroy)
+        
+        -- Limitar quantidade
+        table.insert(ActiveNotifications, 1, { Frame = NotifFrame, Destroy = destroy })
+        while #ActiveNotifications > APEX._CONFIG.MAX_NOTIFICATIONS do
+            local oldest = ActiveNotifications[#ActiveNotifications]
+            if oldest then
+                oldest.Destroy()
+            end
+        end
+        
+        return { Destroy = destroy }
     end
     
-    function NotificationSystem:Success(description)
-        return self:Notify({ Type = "Success", Description = description, Duration = 3 })
+    --// Helpers rápidos
+    function NotificationSystem:Success(description, title)
+        return self:Notify({
+            Title = title or "Sucesso",
+            Description = description,
+            Type = "Success",
+            Duration = 3,
+        })
     end
     
-    function NotificationSystem:Error(description)
-        return self:Notify({ Type = "Error", Description = description, Duration = 5 })
+    function NotificationSystem:Error(description, title)
+        return self:Notify({
+            Title = title or "Erro",
+            Description = description,
+            Type = "Error",
+            Duration = 6,
+        })
+    end
+    
+    function NotificationSystem:Warning(description, title)
+        return self:Notify({
+            Title = title or "Aviso",
+            Description = description,
+            Type = "Warning",
+            Duration = 5,
+        })
+    end
+    
+    function NotificationSystem:Info(description, title)
+        return self:Notify({
+            Title = title or "Informação",
+            Description = description,
+            Type = "Info",
+            Duration = 4,
+        })
     end
 end
-ApexLib.Notify = NotificationSystem
+APEX.Notify = NotificationSystem
 
---// Exportação
-getgenv().ApexLib = ApexLib
-return ApexLib
+--// =============================================================================
+// SISTEMA DE TEMAS (Theme Manager)
+// =============================================================================
+
+local ThemeSystem = {}
+do
+    APEX._THEMES = {
+        Default = APEX._THEME,
+        Dark = Utils:DeepCopy(APEX._THEME),
+        Light = {
+            Background = Color3.fromRGB(245, 245, 250),
+            Surface = Color3.fromRGB(255, 255, 255),
+            SurfaceHover = Color3.fromRGB(240, 240, 245),
+            Elevated = Color3.fromRGB(235, 235, 240),
+            TextPrimary = Color3.fromRGB(30, 30, 35),
+            TextSecondary = Color3.fromRGB(100, 100, 110),
+            TextMuted = Color3.fromRGB(150, 150, 160),
+            Border = Color3.fromRGB(220, 220, 230),
+        },
+        Midnight = {
+            Background = Color3.fromRGB(2, 6, 23),
+            Surface = Color3.fromRGB(15, 23, 42),
+            Primary = Color3.fromRGB(99, 102, 241),
+            Secondary = Color3.fromRGB(14, 165, 233),
+        },
+        Forest = {
+            Background = Color3.fromRGB(6, 20, 10),
+            Surface = Color3.fromRGB(20, 40, 25),
+            Primary = Color3.fromRGB(34, 197, 94),
+            Secondary = Color3.fromRGB(16, 185, 129),
+        },
+        Sunset = {
+            Background = Color3.fromRGB(20, 10, 15),
+            Surface = Color3.fromRGB(40, 25, 30),
+            Primary = Color3.fromRGB(251, 113, 133),
+            Secondary = Color3.fromRGB(251, 146, 60),
+        },
+    }
+    
+    function ThemeSystem:SetTheme(themeName)
+        local theme = APEX._THEMES[themeName]
+        if not theme then
+            ErrorHandler:Log("ERROR", "Theme", "Tema não encontrado: " .. tostring(themeName))
+            return false
+        end
+        
+        -- Merge com tema base para garantir todas as cores
+        APEX._THEME = Utils:MergeTables(APEX._THEMES.Default, theme)
+        
+        -- Atualizar todas as janelas abertas
+        for _, window in ipairs(APEX.Windows) do
+            if window and not window.IsDestroyed then
+                self:UpdateWindowTheme(window)
+            end
+        end
+        
+        APEX.Error:Log("INFO", "Theme", "Tema alterado para: " .. themeName)
+        return true
+    end
+    
+    function ThemeSystem:UpdateWindowTheme(window)
+        -- Atualizar cores recursivamente
+        local function updateColors(instance)
+            if not instance then return end
+            
+            for _, child in ipairs(instance:GetDescendants()) do
+                if child:IsA("GuiObject") then
+                    -- Verificar registry
+                    local registry = APEX._SYSTEMS.Registry[child]
+                    if registry then
+                        for prop, colorKey in pairs(registry) do
+                            if APEX._THEME[colorKey] then
+                                child[prop] = APEX._THEME[colorKey]
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        
+        updateColors(window.MainFrame)
+    end
+    
+    function ThemeSystem:GetThemes()
+        local list = {}
+        for name, _ in pairs(APEX._THEMES) do
+            table.insert(list, name)
+        end
+        return list
+    end
+    
+    function ThemeSystem:CreateCustomTheme(name, colors)
+        APEX._THEMES[name] = Utils:MergeTables(APEX._THEMES.Default, colors)
+        return true
+    end
+end
+APEX.Theme = ThemeSystem
+
+--// =============================================================================
+// SISTEMA DE SAVE/LOAD (Config Manager)
+// =============================================================================
+
+local SaveSystem = {}
+do
+    APEX._CONFIG_FOLDER = "APEX_Configs"
+    
+    function SaveSystem:GetFolderPath()
+        if not isfolder then return nil end
+        if not isfolder(APEX._CONFIG_FOLDER) then
+            makefolder(APEX._CONFIG_FOLDER)
+        end
+        return APEX._CONFIG_FOLDER
+    end
+    
+    function SaveSystem:Save(name, data)
+        local folder = self:GetFolderPath()
+        if not folder then return false end
+        
+        local path = folder .. "/" .. name .. ".json"
+        local success, encoded = pcall(function()
+            return APEX._SERVICES.HttpService:JSONEncode(data)
+        end)
+        
+        if success then
+            writefile(path, encoded)
+            APEX.Notify:Success("Configuração salva: " .. name)
+            return true
+        else
+            APEX.Notify:Error("Falha ao salvar configuração")
+            return false
+        end
+    end
+    
+    function SaveSystem:Load(name)
+        local folder = self:GetFolderPath()
+        if not folder then return nil end
+        
+        local path = folder .. "/" .. name .. ".json"
+        if not isfile(path) then return nil end
+        
+        local success, data = pcall(function()
+            local content = readfile(path)
+            return APEX._SERVICES.HttpService:JSONDecode(content)
+        end)
+        
+        return success and data or nil
+    end
+    
+    function SaveSystem:GetConfigs()
+        local folder = self:GetFolderPath()
+        if not folder then return {} end
+        
+        local files = listfiles(folder)
+        local configs = {}
+        
+        for _, file in ipairs(files) do
+            if file:match("%.json$") then
+                local name = file:match("([^/\\]+)%.json$")
+                table.insert(configs, name)
+            end
+        end
+        
+        return configs
+    end
+    
+    function SaveSystem:Delete(name)
+        local folder = self:GetFolderPath()
+        if not folder then return false end
+        
+        local path = folder .. "/" .. name .. ".json"
+        if isfile(path) then
+            delfile(path)
+            return true
+        end
+        return false
+    end
+    
+    function SaveSystem:Export(data)
+        local success, encoded = pcall(function()
+            return APEX._SERVICES.HttpService:JSONEncode(data)
+        end)
+        return success and encoded or nil
+    end
+    
+    function SaveSystem:Import(jsonString)
+        local success, data = pcall(function()
+            return APEX._SERVICES.HttpService:JSONDecode(jsonString)
+        end)
+        return success and data or nil
+    end
+end
+APEX.SaveManager = SaveSystem
+
+--// =============================================================================
+// INICIALIZAÇÃO E EXPORTAÇÃO
+// =============================================================================
+
+--// Detectar ambiente
+APEX._SYSTEMS.States.IsStudio = APEX._SERVICES.RunService:IsStudio()
+APEX._SYSTEMS.States.IsMobile = (function()
+    local platform = nil
+    pcall(function()
+        platform = APEX._SERVICES.UserInputService:GetPlatform()
+    end)
+    return platform == Enum.Platform.Android or platform == Enum.Platform.IOS
+end)()
+
+--// Limpeza automática
+APEX._SERVICES.RunService.Heartbeat:Connect(function()
+    -- Limpar cache antigo periodicamente
+    if tick() % 60 < 0.1 then -- A cada ~60 segundos
+        CacheSystem:ClearOld(300)
+    end
+end)
+
+--// Exportar globalmente
+getgenv().APEX = APEX
+
+--// Mensagem de inicialização
+task.delay(0.5, function()
+    if APEX._CONFIG.DEBUG_MODE then
+        print(string.format("[APEX] v%s (%s) carregado com sucesso!", APEX._VERSION, APEX._BUILD))
+        print(string.format("[APEX] Ambiente: %s | Mobile: %s", 
+            APEX._SYSTEMS.States.IsStudio and "Studio" or "Client",
+            tostring(APEX._SYSTEMS.States.IsMobile)))
+    end
+end)
+
+return APEX
